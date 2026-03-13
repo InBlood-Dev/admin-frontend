@@ -1,3 +1,33 @@
+// --- Admin Auth ---
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  role: 'super_admin' | 'moderator';
+}
+
+export interface LoginResponse {
+  admin: AdminUser;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+export interface RefreshResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+export interface ApiError {
+  success: false;
+  message: string;
+  errors: { field: string; message: string }[];
+}
+
+// --- App Data ---
+
 export interface User {
   id: string;
   name: string;
@@ -124,4 +154,255 @@ export interface DashboardStats {
   new_users_today: number;
   new_users_this_week: number;
   stories_active: number;
+}
+
+export interface UserGrowthPoint {
+  month: string;
+  year: number;
+  users: number;
+}
+
+export interface SignupsPoint {
+  day: string;
+  date: string;
+  signups: number;
+}
+
+export interface RevenuePoint {
+  month: string;
+  year: number;
+  revenue: number;
+}
+
+// --- Admin User Management ---
+
+export interface AdminPhoto {
+  id: string;
+  url: string;
+  thumbnail_url: string | null;
+  order_index: number;
+  is_primary: boolean;
+  is_approved: boolean;
+  uploaded_at: string | null;
+}
+
+export interface AdminSubscription {
+  id: string;
+  plan_type: string;
+  status: 'pending' | 'active' | 'cancelled' | 'expired';
+  started_at: string | null;
+  expires_at: string | null;
+  cancelled_at: string | null;
+}
+
+export interface AdminUserProfile {
+  id: string;
+  name: string;
+  email: string;
+  age: number;
+  gender: 'Man' | 'Woman' | 'Non-Binary' | 'Other';
+  bio: string | null;
+  pronouns: string | null;
+  sexual_orientation: string | null;
+  job_title: string | null;
+  company: string | null;
+  education: string | null;
+  drinking: string | null;
+  smoking: string | null;
+  exercise: string | null;
+  pets: string | null;
+  interests: string[];
+  languages: string[];
+  prompts: { question: string; answer: string; order_index?: number }[];
+  opening_moves: { question: string; answer: string; order_index?: number }[];
+  location: { city: string | null; state: string | null; country: string | null };
+  photos: AdminPhoto[];
+  tags: { id: string; name: string; category: string | null }[];
+  relationship_types: { type: string; border_color: string | null }[];
+  is_verified: boolean;
+  is_premium: boolean;
+  is_online: boolean;
+  is_banned: boolean;
+  is_discoverable: boolean;
+  verification_status: 'none' | 'pending' | 'approved' | 'rejected';
+  premium_tier: 'normal' | 'monthly' | 'annual';
+  proximity_range: number | null;
+  age_min: number | null;
+  age_max: number | null;
+  show_distance: string | null;
+  show_last_active: boolean;
+  last_active_at: string | null;
+  created_at: string | null;
+  stats: {
+    matches: number;
+    likes_received: number;
+    super_likes_received: number;
+    reports_filed: number;
+    reports_received: number;
+  };
+  active_subscription: AdminSubscription | null;
+  subscription_history: AdminSubscription[];
+}
+
+export interface AdminUserListItem {
+  id: string;
+  name: string;
+  email: string;
+  age: number;
+  gender: string;
+  primary_photo_url: string | null;
+  location: { city: string | null; state: string | null; country: string | null };
+  is_verified: boolean;
+  is_premium: boolean;
+  is_online: boolean;
+  is_banned: boolean;
+  verification_status: 'none' | 'pending' | 'approved' | 'rejected';
+  premium_tier: 'normal' | 'monthly' | 'annual';
+  match_count: number;
+  last_active_at: string | null;
+  created_at: string | null;
+}
+
+export interface AdminUserMatch {
+  match_id: string;
+  other_user: { id: string; name: string; photo_url: string | null };
+  matched_at: string | null;
+  is_active: boolean;
+}
+
+export interface AdminUserReport {
+  id: string;
+  reporter: { id: string; name: string };
+  reported: { id: string; name: string };
+  report_type: string | null;
+  reason: string | null;
+  description: string | null;
+  status: string | null;
+  created_at: string | null;
+}
+
+export interface PaginatedUsersResponse {
+  users: AdminUserListItem[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+export interface PaginatedMatchesResponse {
+  matches: AdminUserMatch[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+// --- Admin Moderation ---
+
+export interface AdminReport {
+  id: string;
+  reporter: { id: string; name: string } | null;
+  reported_user: { id: string; name: string; is_banned: boolean } | null;
+  report_type: string | null;
+  reason: string | null;
+  description: string | null;
+  reported_message_id: string | null;
+  status: 'pending' | 'reviewed' | 'dismissed' | 'actioned';
+  action_taken: string | null;
+  reviewed_by: { id: string; name: string } | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export interface PaginatedReportsResponse {
+  reports: AdminReport[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+export interface AdminStory {
+  id: string;
+  user: { id: string; name: string } | null;
+  media_type: 'image' | 'video' | null;
+  media_url: string | null;
+  thumbnail_url: string | null;
+  view_count: number;
+  is_deleted: boolean;
+  expires_at: string | null;
+  created_at: string | null;
+}
+
+export interface PaginatedStoriesResponse {
+  stories: AdminStory[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+export interface AdminVerification {
+  id: string;
+  user_id: string;
+  user_name: string | null;
+  user_email: string | null;
+  selfie_url: string | null;
+  primary_photo_url: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  rejection_reason: string | null;
+  reviewed_at: string | null;
+  created_at: string | null;
+}
+
+export interface PaginatedVerificationsResponse {
+  verifications: AdminVerification[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+// --- Admin Matches ---
+
+export interface AdminMatch {
+  id: string;
+  user_a: { id: string | null; name: string; photo_url: string | null };
+  user_b: { id: string | null; name: string; photo_url: string | null };
+  matched_at: string | null;
+  is_active: boolean;
+  unmatched_at: string | null;
+}
+
+export interface PaginatedAdminMatchesResponse {
+  matches: AdminMatch[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+// --- Admin Subscriptions & Payments ---
+
+export interface AdminSubscriptionItem {
+  id: string;
+  user: { id: string; name: string } | null;
+  plan_type: string | null;
+  status: 'pending' | 'active' | 'cancelled' | 'expired';
+  amount: number;
+  started_at: string | null;
+  expires_at: string | null;
+  cancelled_at: string | null;
+  created_at: string | null;
+}
+
+export interface PaginatedSubscriptionsResponse {
+  subscriptions: AdminSubscriptionItem[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+export interface AdminTransaction {
+  id: string;
+  order_id: string;
+  cf_order_id: string | null;
+  user: { id: string; name: string } | null;
+  plan_type: string | null;
+  amount: number;
+  currency: string;
+  status: 'created' | 'success' | 'failed' | 'dropped';
+  payment_method: string | null;
+  created_at: string | null;
+}
+
+export interface PaginatedTransactionsResponse {
+  transactions: AdminTransaction[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+export interface RevenueByPlan {
+  plan_type: string;
+  total_amount: number;
+  count: number;
 }

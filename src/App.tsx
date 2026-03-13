@@ -1,7 +1,8 @@
-import { useState } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import './App.css';
+import { useAuth } from './context/AuthContext';
 import Sidebar from './components/Sidebar';
+import ErrorModal from './components/ErrorModal';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import UsersPage from './pages/UsersPage';
@@ -12,7 +13,6 @@ import VerificationsPage from './pages/VerificationsPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
-import { dashboardStats } from './data/mock';
 
 const pageTitles: Record<string, string> = {
   '/': 'Dashboard',
@@ -26,22 +26,23 @@ const pageTitles: Record<string, string> = {
   '/settings': 'App Config',
 };
 
-function AppLayout({ onLogout }: { onLogout: () => void }) {
+function AppLayout() {
+  const { logout, admin } = useAuth();
   const location = useLocation();
   const title = pageTitles[location.pathname] || 'Dashboard';
 
   return (
     <div className="app-layout">
       <Sidebar
-        onLogout={onLogout}
-        pendingReports={dashboardStats.pending_reports}
-        pendingVerifications={dashboardStats.pending_verifications}
+        onLogout={logout}
+        pendingReports={0}
+        pendingVerifications={0}
       />
       <div className="app-main">
         <header className="app-header">
           <h2>{title}</h2>
           <div className="app-header-right">
-            <span className="admin-badge">Admin</span>
+            <span className="admin-badge">{admin?.name ?? 'Admin'}</span>
           </div>
         </header>
         <main className="app-content">
@@ -63,15 +64,35 @@ function AppLayout({ onLogout }: { onLogout: () => void }) {
 }
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isAuthenticated, isLoading, sessionExpired, clearSessionExpired } = useAuth();
 
-  if (!isLoggedIn) {
-    return <Login onLogin={() => setIsLoggedIn(true)} />;
+  if (isLoading) {
+    return (
+      <div className="auth-loading-screen">
+        <div className="auth-loading-spinner" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <>
+        <Login />
+        {/* FIX Bug 4: use "OK" not "Try Again" -- there is nothing to retry on session expiry */}
+        <ErrorModal
+          isOpen={sessionExpired.active}
+          title="Session Expired"
+          message={sessionExpired.message}
+          onClose={clearSessionExpired}
+          actionLabel="OK"
+        />
+      </>
+    );
   }
 
   return (
     <BrowserRouter>
-      <AppLayout onLogout={() => setIsLoggedIn(false)} />
+      <AppLayout />
     </BrowserRouter>
   );
 }

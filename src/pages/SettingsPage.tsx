@@ -1,6 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import settingsService from '../services/settings.service';
+import type { AppSettings } from '../services/settings.service';
+import ErrorModal from '../components/ErrorModal';
+
+function extractErrorMessage(err: unknown): string {
+  const e = err as { response?: { data?: { errors?: { message: string }[]; message?: string } } };
+  return (
+    e?.response?.data?.errors?.[0]?.message ||
+    e?.response?.data?.message ||
+    (err instanceof Error ? err.message : 'Something went wrong')
+  );
+}
 
 export default function SettingsPage() {
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<{ title: string; message: string } | null>(null);
+
+  // Local form state
   const [discoveryEnabled, setDiscoveryEnabled] = useState(true);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [forceUpdate, setForceUpdate] = useState(false);
@@ -8,7 +27,96 @@ export default function SettingsPage() {
   const [dailySuperLikeLimit, setDailySuperLikeLimit] = useState('3');
   const [storyExpiry, setStoryExpiry] = useState('24');
   const [maxPhotos, setMaxPhotos] = useState('6');
-  const [minAppVersion, setMinAppVersion] = useState('2.5.0');
+  const [minAppVersion, setMinAppVersion] = useState('1.0.0');
+
+  const savedTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  const applySettings = useCallback((s: AppSettings) => {
+    setSettings(s);
+    setDiscoveryEnabled(s.discovery_enabled);
+    setMaintenanceMode(s.maintenance_mode);
+    setForceUpdate(s.force_update_enabled);
+    setDailySwipeLimit(String(s.daily_swipe_limit));
+    setDailySuperLikeLimit(String(s.daily_super_like_limit));
+    setStoryExpiry(String(s.story_expiry_hours));
+    setMaxPhotos(String(s.max_photos));
+    setMinAppVersion(s.min_app_version);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const data = await settingsService.getSettings();
+        applySettings(data);
+      } catch (err) {
+        setError({ title: 'Failed to load settings', message: extractErrorMessage(err) });
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [applySettings]);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const updated = await settingsService.updateSettings({
+        maintenance_mode: maintenanceMode,
+        discovery_enabled: discoveryEnabled,
+        force_update_enabled: forceUpdate,
+        min_app_version: minAppVersion,
+        daily_swipe_limit: parseInt(dailySwipeLimit, 10) || 50,
+        daily_super_like_limit: parseInt(dailySuperLikeLimit, 10) || 3,
+        story_expiry_hours: parseInt(storyExpiry, 10) || 24,
+        max_photos: parseInt(maxPhotos, 10) || 6,
+      });
+      applySettings(updated);
+      setSaved(true);
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      setError({ title: 'Failed to save settings', message: extractErrorMessage(err) });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const hasChanges = settings
+    ? (discoveryEnabled !== settings.discovery_enabled ||
+       maintenanceMode !== settings.maintenance_mode ||
+       forceUpdate !== settings.force_update_enabled ||
+       minAppVersion !== settings.min_app_version ||
+       dailySwipeLimit !== String(settings.daily_swipe_limit) ||
+       dailySuperLikeLimit !== String(settings.daily_super_like_limit) ||
+       storyExpiry !== String(settings.story_expiry_hours) ||
+       maxPhotos !== String(settings.max_photos))
+    : false;
+
+  if (loading) {
+    return (
+      <div className="animate-in">
+        <div className="page-top">
+          <div>
+            <h2>Settings</h2>
+            <p>Loading configuration…</p>
+          </div>
+        </div>
+        <div className="settings-grid">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div className="settings-card" key={i}>
+              <div className="skeleton" style={{ width: 120, height: 20, borderRadius: 6, marginBottom: 16 }} />
+              {Array.from({ length: 3 }).map((_, j) => (
+                <div key={j} className="settings-row">
+                  <div className="skeleton" style={{ width: 160, height: 14, borderRadius: 6 }} />
+                  <div className="skeleton" style={{ width: 48, height: 24, borderRadius: 12 }} />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-in">
@@ -16,6 +124,16 @@ export default function SettingsPage() {
         <div>
           <h2>Settings</h2>
           <p>Manage app configuration and limits</p>
+        </div>
+        <div className="table-header-actions">
+          {saved && <span style={{ fontSize: 12, color: 'var(--green)', marginRight: 12 }}>Settings saved</span>}
+          <button
+            className="btn btn-primary"
+            onClick={handleSave}
+            disabled={saving || !hasChanges}
+          >
+            {saving ? 'Saving…' : 'Save Changes'}
+          </button>
         </div>
       </div>
 
@@ -186,6 +304,14 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      <ErrorModal
+        isOpen={!!error}
+        title={error?.title ?? 'Error'}
+        message={error?.message ?? ''}
+        onClose={() => setError(null)}
+        actionLabel="OK"
+      />
     </div>
   );
 }
