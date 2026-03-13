@@ -29,7 +29,7 @@ export default function SettingsPage() {
   const [maxPhotos, setMaxPhotos] = useState('6');
   const [minAppVersion, setMinAppVersion] = useState('1.0.0');
 
-  const savedTimer = useRef<ReturnType<typeof setTimeout>>();
+  const savedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const applySettings = useCallback((s: AppSettings) => {
     setSettings(s);

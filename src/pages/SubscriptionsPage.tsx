@@ -129,7 +129,7 @@ export default function SubscriptionsPage() {
   const [userSearchLoading, setUserSearchLoading] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUserListItem | null>(null);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
-  const userSearchDebounce = useRef<ReturnType<typeof setTimeout>>();
+  const userSearchDebounce = useRef<ReturnType<typeof setTimeout>>(undefined);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // ── Fetch subscriptions ──────────────────────────────────────────────────
