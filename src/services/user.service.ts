@@ -105,7 +105,7 @@ async function getUserReports(userId: string): Promise<UserReportsResponse> {
   return data.data;
 }
 
-async function grantSubscription(userId: string, planType: 'monthly' | 'annual'): Promise<AdminSubscription> {
+async function grantSubscription(userId: string, planType: string): Promise<AdminSubscription> {
   const { data } = await api.post(`/admin/users/${userId}/subscription/grant`, { plan_type: planType });
   return data.data;
 }

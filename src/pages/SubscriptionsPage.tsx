@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Crown, XCircle, Gift, Search } from 'lucide-react';
 import subscriptionService from '../services/subscription.service';
 import userService from '../services/user.service';
+import planService from '../services/plan.service';
 import type {
+  AdminPlan,
   AdminSubscriptionItem,
   AdminTransaction,
   AdminUserListItem,
@@ -92,6 +94,7 @@ function SkeletonTxnRows() {
 
 export default function SubscriptionsPage() {
   const [tab, setTab] = useState<'subscriptions' | 'transactions' | 'failed'>('subscriptions');
+  const [availablePlans, setAvailablePlans] = useState<AdminPlan[]>([]);
 
   // ── Subscriptions state ──────────────────────────────────────────────────
   const [subscriptions, setSubscriptions] = useState<AdminSubscriptionItem[]>([]);
@@ -120,7 +123,7 @@ export default function SubscriptionsPage() {
   // ── Grant modal state ────────────────────────────────────────────────────
   const [grantModal, setGrantModal] = useState(false);
   const [grantUserId, setGrantUserId] = useState('');
-  const [grantPlan, setGrantPlan] = useState<'monthly' | 'annual'>('monthly');
+  const [grantPlan, setGrantPlan] = useState('monthly');
   const [grantLoading, setGrantLoading] = useState(false);
 
   // ── User search for grant modal ────────────────────────────────────────
@@ -143,7 +146,7 @@ export default function SubscriptionsPage() {
         sort_order: 'desc',
       };
       if (status) params.status = status as AdminSubscriptionItem['status'];
-      if (planType) params.plan_type = planType as 'monthly' | 'annual';
+      if (planType) params.plan_type = planType;
 
       const result: PaginatedSubscriptionsResponse = await subscriptionService.listSubscriptions(params);
       setSubscriptions(result.subscriptions);
@@ -188,6 +191,10 @@ export default function SubscriptionsPage() {
   }, []);
 
   // ── Effects ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    planService.listPlans().then(setAvailablePlans).catch(() => {});
+  }, []);
+
   useEffect(() => {
     fetchSubscriptions(subsPage, subsStatusFilter, subsPlanFilter);
   }, [subsPage, subsStatusFilter, subsPlanFilter, fetchSubscriptions]);
@@ -393,8 +400,9 @@ export default function SubscriptionsPage() {
                 onChange={(e) => { setSubsPlanFilter(e.target.value); setSubsPage(1); }}
               >
                 <option value="">All Plans</option>
-                <option value="monthly">Monthly</option>
-                <option value="annual">Annual</option>
+                {availablePlans.map(p => (
+                  <option key={p.id} value={p.plan_key}>{p.name}</option>
+                ))}
               </select>
               <select
                 className="filter-select"
@@ -745,10 +753,11 @@ export default function SubscriptionsPage() {
               className="filter-select"
               style={{ width: '100%' }}
               value={grantPlan}
-              onChange={(e) => setGrantPlan(e.target.value as 'monthly' | 'annual')}
+              onChange={(e) => setGrantPlan(e.target.value)}
             >
-              <option value="monthly">1 Month</option>
-              <option value="annual">1 Year</option>
+              {availablePlans.map(p => (
+                <option key={p.id} value={p.plan_key}>{p.name} ({p.duration_days} days)</option>
+              ))}
             </select>
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

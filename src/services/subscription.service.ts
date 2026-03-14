@@ -11,7 +11,7 @@ export interface ListSubscriptionsParams {
   page?: number;
   limit?: number;
   status?: 'pending' | 'active' | 'cancelled' | 'expired';
-  plan_type?: 'monthly' | 'annual';
+  plan_type?: string;
   sort_by?: 'created_at' | 'started_at' | 'expires_at';
   sort_order?: 'asc' | 'desc';
 }
@@ -20,7 +20,7 @@ export interface ListTransactionsParams {
   page?: number;
   limit?: number;
   status?: 'created' | 'success' | 'failed' | 'dropped' | 'failed_dropped';
-  plan_type?: 'monthly' | 'annual';
+  plan_type?: string;
   sort_by?: 'created_at' | 'amount';
   sort_order?: 'asc' | 'desc';
 }

@@ -406,3 +406,47 @@ export interface RevenueByPlan {
   total_amount: number;
   count: number;
 }
+
+// --- Admin Plans ---
+
+export interface PlanFeature {
+  text: string;
+  included: boolean;
+}
+
+export interface AdminPlan {
+  id: string;
+  plan_key: string;
+  name: string;
+  price: number;
+  original_price: number | null;
+  currency: string;
+  duration_days: number;
+  period_label: string;
+  badge: string | null;
+  badge_color: string | null;
+  discount_label: string | null;
+  features: PlanFeature[];
+  is_active: boolean;
+  sort_order: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface CreatePlanPayload {
+  plan_key: string;
+  name: string;
+  price: number;
+  original_price?: number | null;
+  currency?: string;
+  duration_days: number;
+  period_label: string;
+  badge?: string | null;
+  badge_color?: string | null;
+  discount_label?: string | null;
+  features: PlanFeature[];
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+export type UpdatePlanPayload = Partial<CreatePlanPayload>;
