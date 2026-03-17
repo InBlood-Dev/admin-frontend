@@ -6,6 +6,7 @@ import ErrorModal from './components/ErrorModal';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import UsersPage from './pages/UsersPage';
+import UserDetailPage from './pages/UserDetailPage';
 import MatchesPage from './pages/MatchesPage';
 import ReportsPage from './pages/ReportsPage';
 import StoriesPage from './pages/StoriesPage';
@@ -29,7 +30,7 @@ const pageTitles: Record<string, string> = {
 function AppLayout() {
   const { logout, admin } = useAuth();
   const location = useLocation();
-  const title = pageTitles[location.pathname] || 'Dashboard';
+  const title = pageTitles[location.pathname] || (location.pathname.startsWith('/users/') ? 'User Management' : 'Dashboard');
 
   return (
     <div className="app-layout">
@@ -49,6 +50,7 @@ function AppLayout() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/users" element={<UsersPage />} />
+            <Route path="/users/:id" element={<UserDetailPage />} />
             <Route path="/matches" element={<MatchesPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/stories" element={<StoriesPage />} />
