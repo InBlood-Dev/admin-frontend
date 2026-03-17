@@ -17,6 +17,7 @@ export interface ListUsersParams {
   is_verified?: boolean;
   is_premium?: boolean;
   is_banned?: boolean;
+  is_online?: boolean;
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
 }

@@ -140,6 +140,7 @@ export default function UsersPage() {
   const [genderFilter, setGenderFilter] = useState('');
   const [tierFilter, setTierFilter] = useState('');
   const [verificationFilter, setVerificationFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [bannedFilter, setBannedFilter] = useState('');
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -148,7 +149,7 @@ export default function UsersPage() {
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const buildParams = useCallback((p: number, q: {
-    search: string; gender: string; tier: string; verification: string; banned: string;
+    search: string; gender: string; tier: string; verification: string; status: string; banned: string;
   }) => {
     const params: Record<string, unknown> = { page: p, limit: PAGE_LIMIT };
     if (q.search) params.search = q.search;
@@ -157,13 +158,15 @@ export default function UsersPage() {
     else if (q.tier === 'monthly' || q.tier === 'annual') params.is_premium = true;
     if (q.verification === 'verified') params.is_verified = true;
     else if (q.verification === 'unverified') params.is_verified = false;
+    if (q.status === 'online') params.is_online = true;
+    else if (q.status === 'offline') params.is_online = false;
     if (q.banned === 'banned') params.is_banned = true;
     else if (q.banned === 'active') params.is_banned = false;
     return params;
   }, []);
 
   const fetchUsers = useCallback(async (p: number, q: {
-    search: string; gender: string; tier: string; verification: string; banned: string;
+    search: string; gender: string; tier: string; verification: string; status: string; banned: string;
   }) => {
     setLoading(true);
     try {
@@ -177,11 +180,11 @@ export default function UsersPage() {
     }
   }, [buildParams]);
 
-  const filters = { search, gender: genderFilter, tier: tierFilter, verification: verificationFilter, banned: bannedFilter };
+  const filters = { search, gender: genderFilter, tier: tierFilter, verification: verificationFilter, status: statusFilter, banned: bannedFilter };
 
   useEffect(() => {
     fetchUsers(page, filters);
-  }, [page, genderFilter, tierFilter, verificationFilter, bannedFilter, fetchUsers]);
+  }, [page, genderFilter, tierFilter, verificationFilter, statusFilter, bannedFilter, fetchUsers]);
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -243,9 +246,14 @@ export default function UsersPage() {
               <option value="verified">Verified</option>
               <option value="unverified">Unverified</option>
             </select>
-            <select className="filter-select" value={bannedFilter} onChange={handleFilterChange(setBannedFilter)}>
+            <select className="filter-select" value={statusFilter} onChange={handleFilterChange(setStatusFilter)}>
               <option value="">All Status</option>
-              <option value="active">Active</option>
+              <option value="online">Online</option>
+              <option value="offline">Offline</option>
+            </select>
+            <select className="filter-select" value={bannedFilter} onChange={handleFilterChange(setBannedFilter)}>
+              <option value="">All Users</option>
+              <option value="active">Not Banned</option>
               <option value="banned">Banned</option>
             </select>
           </div>
