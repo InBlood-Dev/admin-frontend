@@ -124,6 +124,8 @@ export default function SubscriptionsPage() {
   const [grantModal, setGrantModal] = useState(false);
   const [grantUserId, setGrantUserId] = useState('');
   const [grantPlan, setGrantPlan] = useState('monthly');
+  const [grantCustomExpiry, setGrantCustomExpiry] = useState('');
+  const [grantUseCustom, setGrantUseCustom] = useState(false);
   const [grantLoading, setGrantLoading] = useState(false);
 
   // ── User search for grant modal ────────────────────────────────────────
@@ -247,10 +249,16 @@ export default function SubscriptionsPage() {
     if (!grantUserId.trim()) return;
     setGrantLoading(true);
     try {
-      await userService.grantSubscription(grantUserId.trim(), grantPlan);
+      await userService.grantSubscription(
+        grantUserId.trim(),
+        grantPlan,
+        grantUseCustom && grantCustomExpiry ? grantCustomExpiry : undefined
+      );
       setGrantModal(false);
       setGrantUserId('');
       setGrantPlan('monthly');
+      setGrantCustomExpiry('');
+      setGrantUseCustom(false);
       setUserSearch('');
       setUserResults([]);
       setSelectedUser(null);
@@ -748,7 +756,7 @@ export default function SubscriptionsPage() {
             )}
           </div>
           <div className="form-group">
-            <label>Duration</label>
+            <label>Plan</label>
             <select
               className="filter-select"
               style={{ width: '100%' }}
@@ -759,6 +767,27 @@ export default function SubscriptionsPage() {
                 <option key={p.id} value={p.plan_key}>{p.name} ({p.duration_days} days)</option>
               ))}
             </select>
+          </div>
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={grantUseCustom}
+                onChange={(e) => setGrantUseCustom(e.target.checked)}
+                style={{ width: 14, height: 14, accentColor: 'var(--accent)' }}
+              />
+              Custom expiry date
+            </label>
+            {grantUseCustom && (
+              <input
+                className="form-input"
+                type="date"
+                value={grantCustomExpiry}
+                onChange={(e) => setGrantCustomExpiry(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                style={{ marginTop: 6, colorScheme: 'dark' }}
+              />
+            )}
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button

@@ -106,8 +106,10 @@ async function getUserReports(userId: string): Promise<UserReportsResponse> {
   return data.data;
 }
 
-async function grantSubscription(userId: string, planType: string): Promise<AdminSubscription> {
-  const { data } = await api.post(`/admin/users/${userId}/subscription/grant`, { plan_type: planType });
+async function grantSubscription(userId: string, planType: string, expiresAt?: string): Promise<AdminSubscription> {
+  const payload: { plan_type: string; expires_at?: string } = { plan_type: planType };
+  if (expiresAt) payload.expires_at = expiresAt;
+  const { data } = await api.post(`/admin/users/${userId}/subscription/grant`, payload);
   return data.data;
 }
 

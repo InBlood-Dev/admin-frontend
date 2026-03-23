@@ -14,6 +14,7 @@ import VerificationsPage from './pages/VerificationsPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
+import LegalPagesPage from './pages/LegalPagesPage';
 
 const pageTitles: Record<string, string> = {
   '/': 'Dashboard',
@@ -25,6 +26,7 @@ const pageTitles: Record<string, string> = {
   '/subscriptions': 'Premium & Payments',
   '/notifications': 'Push Notifications',
   '/settings': 'App Config',
+  '/legal-pages': 'Legal Pages',
 };
 
 function AppLayout() {
@@ -58,6 +60,7 @@ function AppLayout() {
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/legal-pages" element={<LegalPagesPage />} />
           </Routes>
         </main>
       </div>

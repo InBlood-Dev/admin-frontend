@@ -10,6 +10,7 @@ import {
   LogOut,
   Clapperboard,
   Bell,
+  FileText,
 } from 'lucide-react';
 
 interface Props {
@@ -62,6 +63,9 @@ export default function Sidebar({ onLogout, pendingReports, pendingVerifications
         <div className="sidebar-section">Operations</div>
         <NavLink to="/notifications">
           <Bell /> Notifications
+        </NavLink>
+        <NavLink to="/legal-pages">
+          <FileText /> Legal Pages
         </NavLink>
         <NavLink to="/settings">
           <Settings /> App Config
