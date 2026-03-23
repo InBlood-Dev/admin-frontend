@@ -22,9 +22,7 @@ export default function Sidebar({ onLogout, pendingReports, pendingVerifications
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <div className="logo-icon">
-          <Heart size={15} color="white" fill="white" />
-        </div>
+        <img src="/logo.png" alt="InBlood" className="logo-img" />
         <h1>InBlood</h1>
         <span>Admin</span>
       </div>

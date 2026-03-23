@@ -73,6 +73,13 @@
   flex-shrink: 0;
 }
 
+.sidebar-logo .logo-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
 .sidebar-logo .logo-icon {
   width: 28px;
   height: 28px;
