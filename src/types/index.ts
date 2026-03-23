@@ -407,6 +407,55 @@ export interface RevenueByPlan {
   count: number;
 }
 
+export interface GenderPoint {
+  gender: string;
+  count: number;
+}
+
+export interface AgeRangePoint {
+  range: string;
+  count: number;
+}
+
+export interface LocationPoint {
+  name: string;
+  count: number;
+}
+
+export interface LocationDistribution {
+  states: LocationPoint[];
+  cities: LocationPoint[];
+}
+
+export interface OrientationPoint {
+  orientation: string;
+  count: number;
+}
+
+export interface GenderByAgePoint {
+  age_group: string;
+  Man?: number;
+  Woman?: number;
+  'Non-Binary'?: number;
+  Other?: number;
+  [key: string]: string | number | undefined;
+}
+
+export interface GenderByStatePoint {
+  state: string;
+  total: number;
+  Man?: number;
+  Woman?: number;
+  'Non-Binary'?: number;
+  Other?: number;
+  [key: string]: string | number | undefined;
+}
+
+export interface DemographicsSummary {
+  gender_by_age: GenderByAgePoint[];
+  gender_by_state: GenderByStatePoint[];
+}
+
 // --- Admin Plans ---
 
 export interface PlanFeature {
