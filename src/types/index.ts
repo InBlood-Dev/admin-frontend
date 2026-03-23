@@ -467,7 +467,6 @@ export interface PremiumFreeStats {
   active_this_week: number;
   active_this_month: number;
   matches: number;
-  messages: number;
 }
 
 export interface PremiumComparisonGrowth {
