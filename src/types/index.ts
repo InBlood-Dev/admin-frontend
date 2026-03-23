@@ -456,6 +456,46 @@ export interface DemographicsSummary {
   gender_by_state: GenderByStatePoint[];
 }
 
+export interface DateRange {
+  from: string | null;
+  to: string | null;
+}
+
+export interface PremiumFreeStats {
+  total: number;
+  active_today: number;
+  active_this_week: number;
+  active_this_month: number;
+  matches: number;
+  messages: number;
+}
+
+export interface PremiumComparisonGrowth {
+  month: string;
+  year: number;
+  premium: number;
+  free: number;
+}
+
+export interface PremiumComparisonAge {
+  range: string;
+  premium: number;
+  free: number;
+}
+
+export interface PremiumComparison {
+  stats: {
+    premium: PremiumFreeStats;
+    free: PremiumFreeStats;
+  };
+  growth: PremiumComparisonGrowth[];
+  gender: {
+    premium: GenderPoint[];
+    free: GenderPoint[];
+  };
+  age: PremiumComparisonAge[];
+}
+
 // --- Admin Plans ---
 
 export interface PlanFeature {
