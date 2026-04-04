@@ -1061,7 +1061,7 @@ export default function Dashboard() {
                 <div className="tracking-detail"><span>Platform</span><span>Website</span></div>
                 <div className="tracking-detail"><span>Features</span><span>Events, Page views, User identification</span></div>
                 <div className="tracking-detail"><span>Integration</span><span className="platform-badge configured">Integrated</span></div>
-                <div className="tracking-detail"><span>Account</span><span className="platform-badge not-configured">Needs setup</span></div>
+                <div className="tracking-detail"><span>Account</span><span className="platform-badge configured">Configured</span></div>
               </div>
             </div>
             <div className="tracking-card">
@@ -1070,15 +1070,15 @@ export default function Dashboard() {
                 <div className="tracking-detail"><span>Platform</span><span>Website</span></div>
                 <div className="tracking-detail"><span>Features</span><span>Session recording, Heatmaps, User behavior</span></div>
                 <div className="tracking-detail"><span>Integration</span><span className="platform-badge configured">Integrated</span></div>
-                <div className="tracking-detail"><span>Account</span><span className="platform-badge not-configured">Needs setup</span></div>
+                <div className="tracking-detail"><span>Account</span><span className="platform-badge configured">Configured</span></div>
               </div>
             </div>
           </div>
           <div className="engagement-actions"><div className="chart-card"><div className="chart-card-header"><h3>Setup Required</h3></div>
             <div className="action-items">
-              <div className="action-item"><div className="action-dot" style={{ background: 'var(--accent)' }} /><div><strong>Create PostHog account</strong><p>Set <code>NEXT_PUBLIC_POSTHOG_KEY</code> and <code>NEXT_PUBLIC_POSTHOG_HOST</code> env vars</p></div></div>
-              <div className="action-item"><div className="action-dot" style={{ background: 'var(--accent)' }} /><div><strong>Create Microsoft Clarity account</strong><p>Set <code>NEXT_PUBLIC_CLARITY_PROJECT_ID</code> env var</p></div></div>
-              <div className="action-item"><div className="action-dot" style={{ background: 'var(--yellow)' }} /><div><strong>Add analytics to Android app</strong><p>Integrate PostHog React Native SDK or Firebase Analytics in mobile app</p></div></div>
+              <div className="action-item"><div className="action-dot" style={{ background: 'var(--green)' }} /><div><strong>Create PostHog account</strong><p>Configured — Project ID 368943 (US Cloud)</p></div></div>
+              <div className="action-item"><div className="action-dot" style={{ background: 'var(--green)' }} /><div><strong>Create Microsoft Clarity account</strong><p>Configured — Project ID w6giyz4fgc</p></div></div>
+              <div className="action-item"><div className="action-dot" style={{ background: 'var(--green)' }} /><div><strong>Add analytics to Android app</strong><p>PostHog + Clarity integrated in React Native app</p></div></div>
               <div className="action-item"><div className="action-dot" style={{ background: 'var(--text-muted)' }} /><div><strong>iOS deployment</strong><p>Deploy to App Store and integrate analytics tracking</p></div></div>
             </div>
           </div></div>
