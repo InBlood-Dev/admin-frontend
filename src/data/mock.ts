@@ -2,6 +2,7 @@ import type { User, Match, Report, Verification, Subscription, DashboardStats, S
 
 export const dashboardStats: DashboardStats = {
   total_users: 24_831,
+  currently_active: 142,
   active_today: 3_412,
   active_this_week: 9_840,
   active_this_month: 18_200,
