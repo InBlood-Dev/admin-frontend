@@ -141,6 +141,7 @@ export interface Notification {
 
 export interface DashboardStats {
   total_users: number;
+  currently_active: number;
   active_today: number;
   active_this_week: number;
   active_this_month: number;

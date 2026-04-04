@@ -680,7 +680,7 @@ export default function Dashboard() {
         <div className="dashboard-section animate-in">
           <div className="stats-grid">
             {loading
-              ? Array.from({ length: 8 }).map((_, i) => (
+              ? Array.from({ length: 9 }).map((_, i) => (
                   <div className="stat-card skeleton-card" key={i} style={{ animationDelay: `${i * 0.05}s` }}>
                     <div className="stat-card-header">
                       <span className="skeleton" style={{ width: 80, height: 14 }} />
@@ -693,13 +693,14 @@ export default function Dashboard() {
               : stats && (
                 <>
                   <AnimatedStatCard label="Total Users" target={stats.total_users} icon={Users} color="var(--blue)" bg="var(--blue-soft)" change={`+${stats.new_users_today} today`} delay={0} />
-                  <AnimatedStatCard label="Active Today" target={stats.active_today} icon={UserPlus} color="var(--green)" bg="var(--green-soft)" change={`${stats.active_this_week.toLocaleString()} this week`} delay={0.05} />
-                  <AnimatedStatCard label="Active This Month" target={stats.active_this_month} icon={TrendingUp} color="var(--purple)" bg="var(--purple-soft)" change={stats.total_users ? `${((stats.active_this_month / stats.total_users) * 100).toFixed(1)}% of total` : '—'} delay={0.1} />
-                  <AnimatedStatCard label="Total Matches" target={stats.total_matches} icon={Heart} color="var(--accent)" bg="var(--accent-soft)" delay={0.15} />
-                  <AnimatedStatCard label="Messages Sent" target={stats.total_messages} icon={MessageSquare} color="var(--purple)" bg="var(--purple-soft)" delay={0.2} />
-                  <AnimatedStatCard label="Premium Users" target={stats.premium_users} icon={Crown} color="var(--yellow)" bg="var(--yellow-soft)" change={stats.total_users ? `${((stats.premium_users / stats.total_users) * 100).toFixed(1)}% conversion` : '—'} delay={0.25} />
-                  <AnimatedStatCard label="MRR" target={stats.mrr} icon={IndianRupee} color="var(--green)" bg="var(--green-soft)" prefix="₹" delay={0.3} />
-                  <AnimatedStatCard label="Active Stories" target={stats.stories_active} icon={Clapperboard} color="var(--blue)" bg="var(--blue-soft)" change="Last 24 hours" delay={0.35} />
+                  <AnimatedStatCard label="Currently Active" target={stats.currently_active} icon={Globe} color="var(--green)" bg="var(--green-soft)" change="Right now" delay={0.05} />
+                  <AnimatedStatCard label="Active Today" target={stats.active_today} icon={UserPlus} color="var(--green)" bg="var(--green-soft)" change={`${stats.active_this_week.toLocaleString()} this week`} delay={0.1} />
+                  <AnimatedStatCard label="Active This Month" target={stats.active_this_month} icon={TrendingUp} color="var(--purple)" bg="var(--purple-soft)" change={stats.total_users ? `${((stats.active_this_month / stats.total_users) * 100).toFixed(1)}% of total` : '—'} delay={0.15} />
+                  <AnimatedStatCard label="Total Matches" target={stats.total_matches} icon={Heart} color="var(--accent)" bg="var(--accent-soft)" delay={0.2} />
+                  <AnimatedStatCard label="Messages Sent" target={stats.total_messages} icon={MessageSquare} color="var(--purple)" bg="var(--purple-soft)" delay={0.25} />
+                  <AnimatedStatCard label="Premium Users" target={stats.premium_users} icon={Crown} color="var(--yellow)" bg="var(--yellow-soft)" change={stats.total_users ? `${((stats.premium_users / stats.total_users) * 100).toFixed(1)}% conversion` : '—'} delay={0.3} />
+                  <AnimatedStatCard label="MRR" target={stats.mrr} icon={IndianRupee} color="var(--green)" bg="var(--green-soft)" prefix="₹" delay={0.35} />
+                  <AnimatedStatCard label="Active Stories" target={stats.stories_active} icon={Clapperboard} color="var(--blue)" bg="var(--blue-soft)" change="Last 24 hours" delay={0.4} />
                 </>
               )}
           </div>

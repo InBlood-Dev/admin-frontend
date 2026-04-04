@@ -117,6 +117,23 @@ async function revokeSubscription(userId: string): Promise<void> {
   await api.put(`/admin/users/${userId}/subscription/revoke`);
 }
 
+export interface BulkActionResult {
+  total: number;
+  succeeded: number;
+  failed: number;
+  failures: { user_id: string; error: string }[];
+}
+
+async function bulkVerifyUsers(userIds: string[]): Promise<BulkActionResult> {
+  const { data } = await api.put('/admin/users/bulk-verify', { user_ids: userIds });
+  return data.data;
+}
+
+async function bulkRejectVerifications(userIds: string[], reason: string): Promise<BulkActionResult> {
+  const { data } = await api.put('/admin/users/bulk-reject-verification', { user_ids: userIds, reason });
+  return data.data;
+}
+
 async function deleteUser(userId: string): Promise<void> {
   await api.delete(`/admin/users/${userId}`);
 }
@@ -134,6 +151,8 @@ const userService = {
   unbanUser,
   forceVerifyUser,
   rejectVerification,
+  bulkVerifyUsers,
+  bulkRejectVerifications,
   getUserMatches,
   getUserReports,
   grantSubscription,

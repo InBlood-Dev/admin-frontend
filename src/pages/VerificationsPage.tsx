@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import verificationService from '../services/verification.service';
 import userService from '../services/user.service';
+import type { BulkActionResult } from '../services/user.service';
 import type { AdminVerification, PaginatedVerificationsResponse } from '../types';
 import ConfirmModal from '../components/ConfirmModal';
 import ErrorModal from '../components/ErrorModal';
@@ -87,6 +88,7 @@ function SkeletonRows() {
     <>
       {Array.from({ length: 8 }).map((_, i) => (
         <tr key={i} className="skeleton-row">
+          <td><div className="skeleton skeleton-cell" style={{ width: 16 }} /></td>
           <td><div className="skeleton skeleton-cell" style={{ width: 130 }} /></td>
           <td><div className="skeleton skeleton-cell" style={{ width: 160 }} /></td>
           <td><div className="skeleton" style={{ width: 48, height: 48, borderRadius: 6 }} /></td>
@@ -112,6 +114,13 @@ export default function VerificationsPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [error, setError] = useState<{ title: string; message: string } | null>(null);
+
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkConfirmAction, setBulkConfirmAction] = useState<'approve' | 'reject' | null>(null);
+  const [bulkRejectReason, setBulkRejectReason] = useState('');
+  const [bulkResult, setBulkResult] = useState<BulkActionResult | null>(null);
+  const [bulkResultAction, setBulkResultAction] = useState<'approved' | 'rejected'>('approved');
 
   const fetchVerifications = useCallback(async (p: number, status: string) => {
     setLoading(true);
@@ -185,6 +194,85 @@ export default function VerificationsPage() {
     }
   }
 
+  // ─── Selection helpers ───────────────────────────────────────────────
+  const pendingVerifications = verifications.filter((v) => v.status === 'pending');
+  const allPendingSelected = pendingVerifications.length > 0 && pendingVerifications.every((v) => selectedIds.has(v.user_id));
+  const somePendingSelected = pendingVerifications.some((v) => selectedIds.has(v.user_id));
+
+  function toggleSelectAll() {
+    if (allPendingSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pendingVerifications.map((v) => v.user_id)));
+    }
+  }
+
+  function toggleSelect(userId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  }
+
+  // Clear selection on page/filter change
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, statusFilter]);
+
+  // ─── Bulk action handlers ──────────────────────────────────────────
+  async function handleBulkApprove() {
+    setBulkConfirmAction(null);
+    setActionLoading(true);
+    try {
+      const result = await userService.bulkVerifyUsers([...selectedIds]);
+      setBulkResultAction('approved');
+      setBulkResult(result);
+
+      // Update local state for succeeded items
+      const failedIds = new Set(result.failures.map((f) => f.user_id));
+      setVerifications((prev) =>
+        prev.map((v) =>
+          selectedIds.has(v.user_id) && !failedIds.has(v.user_id)
+            ? { ...v, status: 'approved' as const, reviewed_at: new Date().toISOString() }
+            : v
+        ),
+      );
+      setSelectedIds(new Set());
+    } catch (err) {
+      setError({ title: 'Bulk approve failed', message: extractErrorMessage(err) });
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleBulkReject() {
+    setBulkConfirmAction(null);
+    setActionLoading(true);
+    try {
+      const reason = bulkRejectReason || 'No reason provided';
+      const result = await userService.bulkRejectVerifications([...selectedIds], reason);
+      setBulkResultAction('rejected');
+      setBulkResult(result);
+
+      const failedIds = new Set(result.failures.map((f) => f.user_id));
+      setVerifications((prev) =>
+        prev.map((v) =>
+          selectedIds.has(v.user_id) && !failedIds.has(v.user_id)
+            ? { ...v, status: 'rejected' as const, rejection_reason: reason, reviewed_at: new Date().toISOString() }
+            : v
+        ),
+      );
+      setSelectedIds(new Set());
+      setBulkRejectReason('');
+    } catch (err) {
+      setError({ title: 'Bulk reject failed', message: extractErrorMessage(err) });
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   function pageNumbers() {
     const total = pagination.totalPages;
     const current = page;
@@ -236,10 +324,47 @@ export default function VerificationsPage() {
           </div>
         </div>
 
+        {selectedIds.size > 0 && (
+          <div className="bulk-action-bar">
+            <span className="bulk-action-count">{selectedIds.size} selected</span>
+            <button
+              className="btn btn-green btn-sm"
+              onClick={() => setBulkConfirmAction('approve')}
+              disabled={actionLoading}
+            >
+              Approve Selected
+            </button>
+            <button
+              className="btn btn-danger btn-sm"
+              onClick={() => setBulkConfirmAction('reject')}
+              disabled={actionLoading}
+            >
+              Reject Selected
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setSelectedIds(new Set())}
+              disabled={actionLoading}
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
+                <th style={{ width: 40, textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    className="bulk-checkbox"
+                    checked={allPendingSelected}
+                    ref={(el) => { if (el) el.indeterminate = somePendingSelected && !allPendingSelected; }}
+                    onChange={toggleSelectAll}
+                    disabled={pendingVerifications.length === 0}
+                  />
+                </th>
                 <th>User</th>
                 <th>Email</th>
                 <th>Selfie</th>
@@ -254,13 +379,23 @@ export default function VerificationsPage() {
                 <SkeletonRows />
               ) : verifications.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <div className="empty-state"><p>No verification requests found.</p></div>
                   </td>
                 </tr>
               ) : (
                 verifications.map((v) => (
-                  <tr key={v.id}>
+                  <tr key={v.id} className={selectedIds.has(v.user_id) ? 'row-selected' : ''}>
+                    <td style={{ textAlign: 'center' }}>
+                      {v.status === 'pending' ? (
+                        <input
+                          type="checkbox"
+                          className="bulk-checkbox"
+                          checked={selectedIds.has(v.user_id)}
+                          onChange={() => toggleSelect(v.user_id)}
+                        />
+                      ) : null}
+                    </td>
                     <td>
                       <div className="user-cell">
                         <div className="user-avatar">{v.user_name?.charAt(0) ?? '?'}</div>
@@ -413,6 +548,92 @@ export default function VerificationsPage() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Bulk approve confirm */}
+      <ConfirmModal
+        isOpen={bulkConfirmAction === 'approve'}
+        title="Bulk Approve Verifications"
+        message={`Approve ${selectedIds.size} verification(s)? Their profiles will be marked as verified.`}
+        confirmLabel="Approve All"
+        confirmVariant="green"
+        isLoading={actionLoading}
+        onConfirm={handleBulkApprove}
+        onCancel={() => setBulkConfirmAction(null)}
+      />
+
+      {/* Bulk reject modal with reason */}
+      <Modal
+        open={bulkConfirmAction === 'reject'}
+        onClose={() => { setBulkConfirmAction(null); setBulkRejectReason(''); }}
+        title={`Reject ${selectedIds.size} Verification(s)`}
+        width={420}
+      >
+        <div className="notif-form">
+          <div className="form-group">
+            <label>Reason for rejection (applied to all)</label>
+            <textarea
+              className="form-input reject-reason-textarea"
+              placeholder="e.g. Face not clearly visible, photo doesn't match..."
+              value={bulkRejectReason}
+              onChange={(e) => setBulkRejectReason(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button
+              className="btn btn-ghost"
+              onClick={() => { setBulkConfirmAction(null); setBulkRejectReason(''); }}
+              disabled={actionLoading}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn btn-danger"
+              onClick={handleBulkReject}
+              disabled={actionLoading}
+            >
+              {actionLoading ? <span className="btn-spinner" /> : null}
+              Reject All
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Bulk result modal */}
+      <Modal
+        open={!!bulkResult}
+        onClose={() => setBulkResult(null)}
+        title="Bulk Action Result"
+        width={480}
+      >
+        {bulkResult && (
+          <div className="bulk-result-modal">
+            <div className={`bulk-result-summary ${bulkResult.failed === 0 ? 'bulk-result-success' : bulkResult.succeeded === 0 ? 'bulk-result-error' : 'bulk-result-partial'}`}>
+              {bulkResult.failed === 0
+                ? `All ${bulkResult.total} verification(s) ${bulkResultAction} successfully`
+                : bulkResult.succeeded === 0
+                ? `All ${bulkResult.total} verification(s) failed`
+                : `${bulkResult.succeeded} of ${bulkResult.total} ${bulkResultAction} successfully`}
+            </div>
+            {bulkResult.failures.length > 0 && (
+              <div className="bulk-result-failures">
+                <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Failed ({bulkResult.failed}):</p>
+                <ul className="bulk-result-failure-list">
+                  {bulkResult.failures.map((f) => (
+                    <li key={f.user_id}>
+                      <span className="bulk-result-userid">{f.user_id}</span>
+                      <span className="bulk-result-error-msg">{f.error}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+              <button className="btn btn-ghost" onClick={() => setBulkResult(null)}>Done</button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Lightbox */}
