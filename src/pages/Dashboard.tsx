@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users, Heart, MessageSquare, Crown, ShieldAlert, BadgeCheck, IndianRupee,
   UserPlus, Clapperboard, TrendingUp, MapPin, ChevronDown, ChevronLeft, ChevronRight,
-  Globe, Smartphone, Tablet, Calendar, X,
+  Globe, Smartphone, Tablet, Calendar, X, BarChart3, Eye, Clock, Monitor, Link, Activity,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -16,6 +16,7 @@ import type {
   DashboardStats, UserGrowthPoint, SignupsPoint, RevenuePoint, RevenueByPlan,
   GenderPoint, AgeRangePoint, LocationDistribution, OrientationPoint, DemographicsSummary,
   DateRange, PremiumComparison,
+  AnalyticsOverview, DailyTrendPoint, DailySessionPoint, TopPage, TopEvent, ReferrerPoint, DevicePoint,
 } from '../types';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -487,7 +488,7 @@ function DateRangePicker({ value, onChange }: {
 
 // ── Section tabs ────────────────────────────────────────────────────────────
 
-type DashboardSection = 'overview' | 'demographics' | 'premium' | 'engagement';
+type DashboardSection = 'overview' | 'demographics' | 'premium' | 'analytics' | 'engagement';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DASHBOARD COMPONENT
@@ -516,11 +517,22 @@ export default function Dashboard() {
   // ── Premium comparison data ─────────────────────────────────────────────
   const [premiumData, setPremiumData] = useState<PremiumComparison | null>(null);
 
+  // ── PostHog analytics data ─────────────────────────────────────────────
+  const [analyticsOverview, setAnalyticsOverview] = useState<AnalyticsOverview | null>(null);
+  const [dailyTrends, setDailyTrends] = useState<DailyTrendPoint[]>([]);
+  const [dailySessions, setDailySessions] = useState<DailySessionPoint[]>([]);
+  const [topPages, setTopPages] = useState<TopPage[]>([]);
+  const [topEvents, setTopEvents] = useState<TopEvent[]>([]);
+  const [referrers, setReferrers] = useState<ReferrerPoint[]>([]);
+  const [devices, setDevices] = useState<DevicePoint[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [demographicsLoading, setDemographicsLoading] = useState(false);
   const [demographicsLoaded, setDemographicsLoaded] = useState(false);
   const [premiumLoading, setPremiumLoading] = useState(false);
   const [premiumLoaded, setPremiumLoaded] = useState(false);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsLoaded, setAnalyticsLoaded] = useState(false);
   const [error, setError] = useState<{ title: string; message: string } | null>(null);
 
   // ── Fetch core overview data ────────────────────────────────────────────
@@ -587,6 +599,34 @@ export default function Dashboard() {
     setPremiumLoading(false);
   }, [premiumLoaded]);
 
+  // ── Fetch PostHog analytics ────────────────────────────────────────────
+  const fetchAnalytics = useCallback(async (range: DateRange, force = false) => {
+    if (analyticsLoaded && !force) return;
+    setAnalyticsLoading(true);
+
+    const results = await Promise.allSettled([
+      dashboardService.getAnalyticsOverview(range),
+      dashboardService.getAnalyticsDailyTrends(range),
+      dashboardService.getAnalyticsDailySessions(range),
+      dashboardService.getAnalyticsTopPages(range),
+      dashboardService.getAnalyticsTopEvents(range),
+      dashboardService.getAnalyticsReferrers(range),
+      dashboardService.getAnalyticsDevices(range),
+    ]);
+
+    const [overviewRes, trendsRes, sessionsRes, pagesRes, eventsRes, refRes, devRes] = results;
+    if (overviewRes.status === 'fulfilled') setAnalyticsOverview(overviewRes.value);
+    if (trendsRes.status === 'fulfilled') setDailyTrends(trendsRes.value);
+    if (sessionsRes.status === 'fulfilled') setDailySessions(sessionsRes.value);
+    if (pagesRes.status === 'fulfilled') setTopPages(pagesRes.value);
+    if (eventsRes.status === 'fulfilled') setTopEvents(eventsRes.value);
+    if (refRes.status === 'fulfilled') setReferrers(refRes.value);
+    if (devRes.status === 'fulfilled') setDevices(devRes.value);
+
+    setAnalyticsLoaded(true);
+    setAnalyticsLoading(false);
+  }, [analyticsLoaded]);
+
   // ── Load overview on mount ──────────────────────────────────────────────
   useEffect(() => {
     fetchOverview(dateRange);
@@ -596,6 +636,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (activeSection === 'demographics') fetchDemographics(dateRange);
     if (activeSection === 'premium') fetchPremium(dateRange);
+    if (activeSection === 'analytics') fetchAnalytics(dateRange);
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Date range change: refetch active section ──────────────────────────
@@ -604,6 +645,7 @@ export default function Dashboard() {
     // Reset loaded flags so data re-fetches
     setDemographicsLoaded(false);
     setPremiumLoaded(false);
+    setAnalyticsLoaded(false);
 
     // Refetch current section
     fetchOverview(newRange);
@@ -618,6 +660,12 @@ export default function Dashboard() {
       setPremiumLoading(true);
       setTimeout(() => {
         fetchPremium(newRange, true);
+      }, 0);
+    }
+    if (activeSection === 'analytics') {
+      setAnalyticsLoading(true);
+      setTimeout(() => {
+        fetchAnalytics(newRange, true);
       }, 0);
     }
   }
@@ -642,6 +690,7 @@ export default function Dashboard() {
     { key: 'overview', label: 'Overview', icon: TrendingUp },
     { key: 'demographics', label: 'Demographics', icon: Users },
     { key: 'premium', label: 'Premium vs Free', icon: Crown },
+    { key: 'analytics', label: 'Analytics', icon: BarChart3 },
     { key: 'engagement', label: 'Engagement', icon: Globe },
   ];
 
@@ -1025,6 +1074,178 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* ═══ ANALYTICS SECTION (PostHog) ═══ */}
+      {activeSection === 'analytics' && (
+        <div className="dashboard-section animate-in">
+          {analyticsLoading ? (
+            <>
+              <div className="stats-grid">
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <div className="stat-card skeleton-card" key={i} style={{ animationDelay: `${i * 0.05}s` }}>
+                    <div className="stat-card-header">
+                      <span className="skeleton" style={{ width: 80, height: 14 }} />
+                      <div className="skeleton" style={{ width: 32, height: 32, borderRadius: 8 }} />
+                    </div>
+                    <div className="skeleton" style={{ width: 100, height: 28, marginTop: 8 }} />
+                  </div>
+                ))}
+              </div>
+              <div className="charts-row" style={{ marginTop: 24 }}>
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div className="chart-card skeleton-card" key={i} style={{ animationDelay: `${i * 0.05}s`, minHeight: 260 }} />
+                ))}
+              </div>
+            </>
+          ) : analyticsOverview ? (
+            <>
+              {/* Overview stat cards */}
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <div className="stat-card-header"><span>Total Events</span><div className="stat-icon" style={{ background: 'var(--blue-soft)' }}><Activity size={18} color="var(--blue)" /></div></div>
+                  <div className="stat-value">{formatNum(analyticsOverview.total_events)}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-card-header"><span>Unique Users</span><div className="stat-icon" style={{ background: 'var(--green-soft)' }}><Users size={18} color="var(--green)" /></div></div>
+                  <div className="stat-value">{formatNum(analyticsOverview.unique_users)}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-card-header"><span>Page Views</span><div className="stat-icon" style={{ background: 'var(--purple-soft)' }}><Eye size={18} color="var(--purple)" /></div></div>
+                  <div className="stat-value">{formatNum(analyticsOverview.page_views)}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-card-header"><span>Screen Views (App)</span><div className="stat-icon" style={{ background: 'var(--yellow-soft)' }}><Smartphone size={18} color="var(--yellow)" /></div></div>
+                  <div className="stat-value">{formatNum(analyticsOverview.screen_views)}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-card-header"><span>Total Sessions</span><div className="stat-icon" style={{ background: 'var(--blue-soft)' }}><Globe size={18} color="var(--blue)" /></div></div>
+                  <div className="stat-value">{formatNum(analyticsOverview.total_sessions)}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-card-header"><span>Avg. Session Duration</span><div className="stat-icon" style={{ background: 'var(--green-soft)' }}><Clock size={18} color="var(--green)" /></div></div>
+                  <div className="stat-value">{analyticsOverview.avg_duration_seconds < 60 ? `${analyticsOverview.avg_duration_seconds}s` : `${Math.floor(analyticsOverview.avg_duration_seconds / 60)}m ${analyticsOverview.avg_duration_seconds % 60}s`}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-card-header"><span>Pages / Session</span><div className="stat-icon" style={{ background: 'var(--purple-soft)' }}><Eye size={18} color="var(--purple)" /></div></div>
+                  <div className="stat-value">{analyticsOverview.avg_pageviews_per_session}</div>
+                </div>
+              </div>
+
+              {/* Daily trends chart */}
+              <div className="charts-row" style={{ marginTop: 24 }}>
+                <div className="chart-card chart-card-wide">
+                  <div className="chart-card-header"><h3>Daily Page Views & Users</h3><span className="chart-badge">Last {dailyTrends.length} days</span></div>
+                  {dailyTrends.length === 0 ? <p className="chart-empty">No data yet — events will appear after your first visitors</p> : (
+                    <div className="chart-container"><ResponsiveContainer width="100%" height={280}>
+                      <AreaChart data={dailyTrends} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                        <XAxis dataKey="day" tick={{ fill: '#888', fontSize: 11 }} tickFormatter={(v) => { const d = new Date(v); return `${d.getDate()}/${d.getMonth() + 1}`; }} />
+                        <YAxis tick={{ fill: '#888', fontSize: 11 }} />
+                        <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 8 }} />
+                        <Area type="monotone" dataKey="page_views" name="Page Views" stroke="#CF6EFF" fill="url(#chartGrad4)" fillOpacity={0.3} strokeWidth={2} animationDuration={1200} />
+                        <Area type="monotone" dataKey="users" name="Users" stroke="#4DFF88" fill="url(#chartGrad2)" fillOpacity={0.2} strokeWidth={2} animationDuration={1200} />
+                      </AreaChart>
+                    </ResponsiveContainer></div>
+                  )}
+                </div>
+              </div>
+
+              {/* Sessions chart */}
+              <div className="charts-row">
+                <div className="chart-card chart-card-wide">
+                  <div className="chart-card-header"><h3>Daily Sessions & Avg. Duration</h3></div>
+                  {dailySessions.length === 0 ? <p className="chart-empty">No session data</p> : (
+                    <div className="chart-container"><ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={dailySessions} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                        <XAxis dataKey="day" tick={{ fill: '#888', fontSize: 11 }} tickFormatter={(v) => { const d = new Date(v); return `${d.getDate()}/${d.getMonth() + 1}`; }} />
+                        <YAxis tick={{ fill: '#888', fontSize: 11 }} />
+                        <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 8 }} formatter={(value: number, name: string) => name === 'Avg Duration' ? [`${Math.floor(value / 60)}m ${value % 60}s`, name] : [value, name]} />
+                        <Bar dataKey="sessions" name="Sessions" fill="url(#chartGrad1)" radius={[4, 4, 0, 0]} animationDuration={1200} />
+                        <Bar dataKey="avg_duration" name="Avg Duration" fill="url(#chartGrad5)" radius={[4, 4, 0, 0]} animationDuration={1200} />
+                      </BarChart>
+                    </ResponsiveContainer></div>
+                  )}
+                </div>
+              </div>
+
+              {/* Top pages & top events */}
+              <div className="charts-row">
+                <div className="chart-card">
+                  <div className="chart-card-header"><h3>Top Pages</h3><span className="chart-badge">{topPages.length} pages</span></div>
+                  {topPages.length === 0 ? <p className="chart-empty">No page view data</p> : (
+                    <div className="analytics-table-container">
+                      <table className="analytics-table">
+                        <thead><tr><th>Page</th><th>Views</th><th>Visitors</th></tr></thead>
+                        <tbody>
+                          {topPages.map((p, i) => (
+                            <tr key={i}>
+                              <td className="analytics-url" title={p.url}>{p.url ? new URL(p.url).pathname : '/'}</td>
+                              <td>{formatNum(p.views)}</td>
+                              <td>{formatNum(p.unique_visitors)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+                <div className="chart-card">
+                  <div className="chart-card-header"><h3>Top Events</h3><span className="chart-badge">{topEvents.length} events</span></div>
+                  {topEvents.length === 0 ? <p className="chart-empty">No event data</p> : (
+                    <div className="analytics-table-container">
+                      <table className="analytics-table">
+                        <thead><tr><th>Event</th><th>Count</th><th>Users</th></tr></thead>
+                        <tbody>
+                          {topEvents.map((e, i) => (
+                            <tr key={i}>
+                              <td className="analytics-event-name">{e.event}</td>
+                              <td>{formatNum(e.count)}</td>
+                              <td>{formatNum(e.unique_users)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Referrers & devices */}
+              <div className="charts-row">
+                <div className="chart-card">
+                  <div className="chart-card-header"><h3>Referrers</h3></div>
+                  {referrers.length === 0 ? <p className="chart-empty">No referrer data</p> : (
+                    <div className="chart-container"><ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={referrers} layout="vertical" margin={{ top: 10, right: 10, left: 80, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                        <XAxis type="number" tick={{ fill: '#888', fontSize: 11 }} />
+                        <YAxis type="category" dataKey="referrer" tick={{ fill: '#aaa', fontSize: 11 }} width={80} tickFormatter={(v) => v.length > 20 ? v.slice(0, 20) + '...' : v} />
+                        <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 8 }} />
+                        <Bar dataKey="count" name="Visits" fill="url(#chartGrad0)" radius={[0, 4, 4, 0]} animationDuration={1200} />
+                      </BarChart>
+                    </ResponsiveContainer></div>
+                  )}
+                </div>
+                <div className="chart-card">
+                  <div className="chart-card-header"><h3>Devices</h3></div>
+                  {devices.length === 0 ? <p className="chart-empty">No device data</p> : (
+                    <div className="chart-container chart-container-with-legend"><ResponsiveContainer width="100%" height={260}>
+                      <PieChart>
+                        <Pie data={devices.map(d => ({ name: d.device, value: d.count }))} cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={4} dataKey="value" stroke="#0B0B0B" strokeWidth={2} labelLine={{ stroke: '#555', strokeWidth: 1 }} label={renderPieLabel} animationDuration={1200}>
+                          {devices.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                        </Pie>
+                        <Legend iconType="circle" iconSize={8} formatter={(value) => <span style={{ color: '#ccc', fontSize: 11 }}>{value}</span>} />
+                        <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 8 }} />
+                      </PieChart>
+                    </ResponsiveContainer></div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : <p className="chart-empty">Failed to load analytics data. Make sure PostHog Personal API Key is configured.</p>}
+        </div>
+      )}
+
       {/* ═══ ENGAGEMENT SECTION ═══ */}
       {activeSection === 'engagement' && (
         <div className="dashboard-section animate-in">
@@ -1036,15 +1257,15 @@ export default function Dashboard() {
               <div className="platform-card-details">
                 <div className="platform-detail"><span>Analytics</span><span className="platform-badge configured">PostHog</span></div>
                 <div className="platform-detail"><span>Session Replay</span><span className="platform-badge configured">Clarity</span></div>
-                <div className="platform-detail"><span>Account Status</span><span className="platform-badge not-configured">Not configured</span></div>
+                <div className="platform-detail"><span>Account Status</span><span className="platform-badge configured">Configured</span></div>
               </div>
             </div>
             <div className="platform-card">
               <div className="platform-card-icon" style={{ background: 'var(--green-soft)' }}><Smartphone size={22} color="var(--green)" /></div>
               <div className="platform-card-info"><h4>Android App</h4><p className="platform-status live">Live</p></div>
               <div className="platform-card-details">
-                <div className="platform-detail"><span>Analytics</span><span className="platform-badge not-configured">Not set up</span></div>
-                <div className="platform-detail"><span>Tracking</span><span className="platform-badge not-configured">Not integrated</span></div>
+                <div className="platform-detail"><span>Analytics</span><span className="platform-badge configured">PostHog + Clarity</span></div>
+                <div className="platform-detail"><span>Tracking</span><span className="platform-badge configured">Integrated</span></div>
               </div>
             </div>
             <div className="platform-card">

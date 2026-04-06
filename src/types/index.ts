@@ -539,3 +539,50 @@ export interface CreatePlanPayload {
 }
 
 export type UpdatePlanPayload = Partial<CreatePlanPayload>;
+
+// --- PostHog Analytics ---
+
+export interface AnalyticsOverview {
+  total_events: number;
+  unique_users: number;
+  page_views: number;
+  screen_views: number;
+  total_sessions: number;
+  avg_duration_seconds: number;
+  avg_pageviews_per_session: number;
+}
+
+export interface DailyTrendPoint {
+  day: string;
+  events: number;
+  users: number;
+  page_views: number;
+}
+
+export interface DailySessionPoint {
+  day: string;
+  sessions: number;
+  avg_duration: number;
+}
+
+export interface TopPage {
+  url: string;
+  views: number;
+  unique_visitors: number;
+}
+
+export interface TopEvent {
+  event: string;
+  count: number;
+  unique_users: number;
+}
+
+export interface ReferrerPoint {
+  referrer: string;
+  count: number;
+}
+
+export interface DevicePoint {
+  device: string;
+  count: number;
+}

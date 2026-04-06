@@ -3,6 +3,8 @@ import type {
   DashboardStats, UserGrowthPoint, SignupsPoint, RevenuePoint, RevenueByPlan,
   GenderPoint, AgeRangePoint, LocationDistribution, OrientationPoint, DemographicsSummary,
   DateRange, PremiumComparison,
+  AnalyticsOverview, DailyTrendPoint, DailySessionPoint,
+  TopPage, TopEvent, ReferrerPoint, DevicePoint,
 } from '../types';
 
 function buildParams(range?: DateRange): Record<string, string> {
@@ -67,6 +69,43 @@ async function getPremiumComparison(range?: DateRange): Promise<PremiumCompariso
   return data.data;
 }
 
+// --- PostHog Analytics ---
+
+async function getAnalyticsOverview(range?: DateRange): Promise<AnalyticsOverview> {
+  const { data } = await api.get('/admin/analytics/overview', { params: buildParams(range) });
+  return data.data;
+}
+
+async function getAnalyticsDailyTrends(range?: DateRange): Promise<DailyTrendPoint[]> {
+  const { data } = await api.get('/admin/analytics/daily-trends', { params: buildParams(range) });
+  return data.data;
+}
+
+async function getAnalyticsDailySessions(range?: DateRange): Promise<DailySessionPoint[]> {
+  const { data } = await api.get('/admin/analytics/daily-sessions', { params: buildParams(range) });
+  return data.data;
+}
+
+async function getAnalyticsTopPages(range?: DateRange): Promise<TopPage[]> {
+  const { data } = await api.get('/admin/analytics/top-pages', { params: buildParams(range) });
+  return data.data;
+}
+
+async function getAnalyticsTopEvents(range?: DateRange): Promise<TopEvent[]> {
+  const { data } = await api.get('/admin/analytics/top-events', { params: buildParams(range) });
+  return data.data;
+}
+
+async function getAnalyticsReferrers(range?: DateRange): Promise<ReferrerPoint[]> {
+  const { data } = await api.get('/admin/analytics/referrers', { params: buildParams(range) });
+  return data.data;
+}
+
+async function getAnalyticsDevices(range?: DateRange): Promise<DevicePoint[]> {
+  const { data } = await api.get('/admin/analytics/devices', { params: buildParams(range) });
+  return data.data;
+}
+
 const dashboardService = {
   getStats,
   getUserGrowth,
@@ -79,6 +118,13 @@ const dashboardService = {
   getOrientationDistribution,
   getDemographicsSummary,
   getPremiumComparison,
+  getAnalyticsOverview,
+  getAnalyticsDailyTrends,
+  getAnalyticsDailySessions,
+  getAnalyticsTopPages,
+  getAnalyticsTopEvents,
+  getAnalyticsReferrers,
+  getAnalyticsDevices,
 };
 
 export default dashboardService;

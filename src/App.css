@@ -842,6 +842,72 @@
   color: var(--text-muted);
 }
 
+/* Analytics tables */
+.analytics-table-container {
+  max-height: 340px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.analytics-table thead th {
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 500;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg-card);
+  z-index: 1;
+}
+
+.analytics-table tbody tr {
+  transition: background 0.15s;
+}
+
+.analytics-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.analytics-table tbody td {
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+.analytics-table tbody td:nth-child(2),
+.analytics-table tbody td:nth-child(3) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.analytics-table thead th:nth-child(2),
+.analytics-table thead th:nth-child(3) {
+  text-align: right;
+}
+
+.analytics-url {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--blue) !important;
+}
+
+.analytics-event-name {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--purple) !important;
+}
+
 .tracking-card-body {
   display: flex;
   flex-direction: column;
