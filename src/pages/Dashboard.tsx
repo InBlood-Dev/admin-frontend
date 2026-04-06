@@ -1159,7 +1159,7 @@ export default function Dashboard() {
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                         <XAxis dataKey="day" tick={{ fill: '#888', fontSize: 11 }} tickFormatter={(v) => { const d = new Date(v); return `${d.getDate()}/${d.getMonth() + 1}`; }} />
                         <YAxis tick={{ fill: '#888', fontSize: 11 }} />
-                        <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 8 }} formatter={(value: number, name: string) => name === 'Avg Duration' ? [`${Math.floor(value / 60)}m ${value % 60}s`, name] : [value, name]} />
+                        <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 8 }} formatter={(value, name) => { const v = Number(value) || 0; return name === 'Avg Duration' ? [`${Math.floor(v / 60)}m ${v % 60}s`, name] : [v, name]; }} />
                         <Bar dataKey="sessions" name="Sessions" fill="url(#chartGrad1)" radius={[4, 4, 0, 0]} animationDuration={1200} />
                         <Bar dataKey="avg_duration" name="Avg Duration" fill="url(#chartGrad5)" radius={[4, 4, 0, 0]} animationDuration={1200} />
                       </BarChart>
