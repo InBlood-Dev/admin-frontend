@@ -33,11 +33,36 @@ async function clearStory(storyId: string): Promise<AdminStory> {
   return data.data;
 }
 
+export interface BulkStoryActionResult {
+  total: number;
+  succeeded: number;
+  failed: number;
+  failures: { id: string; error: string }[];
+}
+
+async function bulkDeleteStories(storyIds: string[]): Promise<BulkStoryActionResult> {
+  const { data } = await api.put('/admin/stories/bulk-delete', { story_ids: storyIds });
+  return data.data;
+}
+
+async function bulkRestoreStories(storyIds: string[]): Promise<BulkStoryActionResult> {
+  const { data } = await api.put('/admin/stories/bulk-restore', { story_ids: storyIds });
+  return data.data;
+}
+
+async function bulkClearStories(storyIds: string[]): Promise<BulkStoryActionResult> {
+  const { data } = await api.put('/admin/stories/bulk-clear', { story_ids: storyIds });
+  return data.data;
+}
+
 const storyService = {
   listStories,
   deleteStory,
   restoreStory,
   clearStory,
+  bulkDeleteStories,
+  bulkRestoreStories,
+  bulkClearStories,
 };
 
 export default storyService;

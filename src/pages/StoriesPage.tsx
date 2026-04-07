@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Trash2, RotateCcw, Image, Video, CheckCircle } from 'lucide-react';
 import storyService from '../services/story.service';
+import type { BulkStoryActionResult } from '../services/story.service';
 import type { AdminStory, PaginatedStoriesResponse } from '../types';
 import ConfirmModal from '../components/ConfirmModal';
 import ErrorModal from '../components/ErrorModal';
+import Modal from '../components/Modal';
 
 const PAGE_LIMIT = 20;
 
@@ -56,6 +58,12 @@ export default function StoriesPage() {
   const [confirmClear, setConfirmClear] = useState<AdminStory | null>(null);
   const [error, setError] = useState<{ title: string; message: string } | null>(null);
 
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkConfirm, setBulkConfirm] = useState<'delete' | 'restore' | 'clear' | null>(null);
+  const [bulkResult, setBulkResult] = useState<BulkStoryActionResult | null>(null);
+  const [bulkResultAction, setBulkResultAction] = useState<'deleted' | 'restored' | 'cleared'>('deleted');
+
   const fetchStories = useCallback(async (p: number, deleted: boolean, mtype: string) => {
     setLoading(true);
     try {
@@ -81,6 +89,66 @@ export default function StoriesPage() {
   useEffect(() => {
     fetchStories(page, showDeleted, mediaFilter);
   }, [page, showDeleted, mediaFilter, fetchStories]);
+
+  // Clear selection when page/filter changes
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, showDeleted, mediaFilter]);
+
+  const selectableStories = showDeleted ? stories.filter((s) => s.is_deleted) : stories.filter((s) => !s.is_deleted);
+  const allSelected = selectableStories.length > 0 && selectableStories.every((s) => selectedIds.has(s.id));
+  const someSelected = selectableStories.some((s) => selectedIds.has(s.id));
+
+  function toggleSelectAll() {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(selectableStories.map((s) => s.id)));
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function runBulk(action: 'delete' | 'restore' | 'clear') {
+    setBulkConfirm(null);
+    setActionLoading(true);
+    try {
+      const ids = [...selectedIds];
+      let result: BulkStoryActionResult;
+      if (action === 'delete') {
+        result = await storyService.bulkDeleteStories(ids);
+        setBulkResultAction('deleted');
+      } else if (action === 'restore') {
+        result = await storyService.bulkRestoreStories(ids);
+        setBulkResultAction('restored');
+      } else {
+        result = await storyService.bulkClearStories(ids);
+        setBulkResultAction('cleared');
+      }
+      setBulkResult(result);
+
+      const failedIds = new Set(result.failures.map((f) => f.id));
+      if (action === 'delete') {
+        if (showDeleted) {
+          setStories((prev) => prev.map((s) => (selectedIds.has(s.id) && !failedIds.has(s.id) ? { ...s, is_deleted: true } : s)));
+        } else {
+          setStories((prev) => prev.filter((s) => !(selectedIds.has(s.id) && !failedIds.has(s.id))));
+          setPagination((p) => ({ ...p, total: Math.max(0, p.total - result.succeeded) }));
+        }
+      } else if (action === 'restore') {
+        setStories((prev) => prev.map((s) => (selectedIds.has(s.id) && !failedIds.has(s.id) ? { ...s, is_deleted: false } : s)));
+      }
+      setSelectedIds(new Set());
+    } catch (err) {
+      setError({ title: `Bulk ${action} failed`, message: extractErrorMessage(err) });
+    } finally {
+      setActionLoading(false);
+    }
+  }
 
   const handleFilterChange =
     (setter: (v: string) => void) => (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -184,6 +252,59 @@ export default function StoriesPage() {
         </div>
       </div>
 
+      {selectableStories.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+            <input
+              type="checkbox"
+              className="bulk-checkbox"
+              checked={allSelected}
+              ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+              onChange={toggleSelectAll}
+            />
+            Select all
+          </label>
+          {selectedIds.size > 0 && (
+            <div className="bulk-action-bar" style={{ marginTop: 0 }}>
+              <span className="bulk-action-count">{selectedIds.size} selected</span>
+              {!showDeleted ? (
+                <>
+                  <button
+                    className="btn btn-sm btn-danger"
+                    onClick={() => setBulkConfirm('delete')}
+                    disabled={actionLoading}
+                  >
+                    Delete Selected
+                  </button>
+                  <button
+                    className="btn btn-sm btn-green"
+                    onClick={() => setBulkConfirm('clear')}
+                    disabled={actionLoading}
+                  >
+                    Clear Selected
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn btn-sm btn-green"
+                  onClick={() => setBulkConfirm('restore')}
+                  disabled={actionLoading}
+                >
+                  Restore Selected
+                </button>
+              )}
+              <button
+                className="btn btn-sm btn-ghost"
+                onClick={() => setSelectedIds(new Set())}
+                disabled={actionLoading}
+              >
+                Clear
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div className="stories-grid"><SkeletonCards /></div>
       ) : stories.length === 0 ? (
@@ -201,7 +322,14 @@ export default function StoriesPage() {
                 opacity: s.is_deleted ? 0.55 : 1,
               }}
             >
-              <div className="story-card-media">
+              <div className="story-card-media" style={{ position: 'relative' }}>
+                <input
+                  type="checkbox"
+                  className="bulk-checkbox"
+                  checked={selectedIds.has(s.id)}
+                  onChange={() => toggleSelect(s.id)}
+                  style={{ position: 'absolute', top: 6, left: 6, zIndex: 2 }}
+                />
                 {s.thumbnail_url || s.media_url ? (
                   <img
                     src={s.thumbnail_url ?? s.media_url ?? ''}
@@ -331,6 +459,72 @@ export default function StoriesPage() {
         onConfirm={handleClear}
         onCancel={() => setConfirmClear(null)}
       />
+
+      <ConfirmModal
+        isOpen={bulkConfirm === 'delete'}
+        title="Bulk Delete Stories"
+        message={`Delete ${selectedIds.size} story(ies)? They will be hidden from all users.`}
+        confirmLabel="Delete All"
+        confirmVariant="danger"
+        isLoading={actionLoading}
+        onConfirm={() => runBulk('delete')}
+        onCancel={() => setBulkConfirm(null)}
+      />
+      <ConfirmModal
+        isOpen={bulkConfirm === 'restore'}
+        title="Bulk Restore Stories"
+        message={`Restore ${selectedIds.size} story(ies)? They will become visible again.`}
+        confirmLabel="Restore All"
+        confirmVariant="green"
+        isLoading={actionLoading}
+        onConfirm={() => runBulk('restore')}
+        onCancel={() => setBulkConfirm(null)}
+      />
+      <ConfirmModal
+        isOpen={bulkConfirm === 'clear'}
+        title="Bulk Clear Stories"
+        message={`Mark all pending reports for ${selectedIds.size} story(ies) as reviewed?`}
+        confirmLabel="Clear All"
+        confirmVariant="green"
+        isLoading={actionLoading}
+        onConfirm={() => runBulk('clear')}
+        onCancel={() => setBulkConfirm(null)}
+      />
+
+      <Modal
+        open={!!bulkResult}
+        onClose={() => setBulkResult(null)}
+        title="Bulk Action Result"
+        width={480}
+      >
+        {bulkResult && (
+          <div className="bulk-result-modal">
+            <div className={`bulk-result-summary ${bulkResult.failed === 0 ? 'bulk-result-success' : bulkResult.succeeded === 0 ? 'bulk-result-error' : 'bulk-result-partial'}`}>
+              {bulkResult.failed === 0
+                ? `All ${bulkResult.total} story(ies) ${bulkResultAction} successfully`
+                : bulkResult.succeeded === 0
+                ? `All ${bulkResult.total} story(ies) failed`
+                : `${bulkResult.succeeded} of ${bulkResult.total} ${bulkResultAction} successfully`}
+            </div>
+            {bulkResult.failures.length > 0 && (
+              <div className="bulk-result-failures">
+                <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Failed ({bulkResult.failed}):</p>
+                <ul className="bulk-result-failure-list">
+                  {bulkResult.failures.map((f) => (
+                    <li key={f.id}>
+                      <span className="bulk-result-userid">{f.id}</span>
+                      <span className="bulk-result-error-msg">{f.error}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+              <button className="btn btn-ghost" onClick={() => setBulkResult(null)}>Done</button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <ErrorModal
         isOpen={!!error}
