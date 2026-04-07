@@ -3,6 +3,7 @@ import {
   Users, Heart, MessageSquare, Crown, ShieldAlert, BadgeCheck, IndianRupee,
   UserPlus, Clapperboard, TrendingUp, MapPin, ChevronDown, ChevronLeft, ChevronRight,
   Globe, Smartphone, Tablet, Calendar, X, BarChart3, Eye, Clock, Monitor, Link, Activity,
+  Download, MousePointerClick, Search,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -17,6 +18,8 @@ import type {
   GenderPoint, AgeRangePoint, LocationDistribution, OrientationPoint, DemographicsSummary,
   DateRange, PremiumComparison,
   AnalyticsOverview, DailyTrendPoint, DailySessionPoint, TopPage, TopEvent, ReferrerPoint, DevicePoint,
+  PlayInstallStats, SearchConsoleOverview, SearchQueryRow, SearchPageRow, SearchDailyPoint,
+  UptimeStats, UptimePoint,
 } from '../types';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -526,6 +529,15 @@ export default function Dashboard() {
   const [referrers, setReferrers] = useState<ReferrerPoint[]>([]);
   const [devices, setDevices] = useState<DevicePoint[]>([]);
 
+  // ── External analytics (Play, Search Console, Uptime) ─────────────────
+  const [playInstalls, setPlayInstalls] = useState<PlayInstallStats | null>(null);
+  const [searchOverview, setSearchOverview] = useState<SearchConsoleOverview | null>(null);
+  const [searchQueries, setSearchQueries] = useState<SearchQueryRow[]>([]);
+  const [searchPages, setSearchPages] = useState<SearchPageRow[]>([]);
+  const [searchTrends, setSearchTrends] = useState<SearchDailyPoint[]>([]);
+  const [uptimeStats, setUptimeStats] = useState<UptimeStats | null>(null);
+  const [uptimeTimeline, setUptimeTimeline] = useState<UptimePoint[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [demographicsLoading, setDemographicsLoading] = useState(false);
   const [demographicsLoaded, setDemographicsLoaded] = useState(false);
@@ -612,9 +624,19 @@ export default function Dashboard() {
       dashboardService.getAnalyticsTopEvents(range),
       dashboardService.getAnalyticsReferrers(range),
       dashboardService.getAnalyticsDevices(range),
+      dashboardService.getPlayInstalls(range),
+      dashboardService.getSearchOverview(range),
+      dashboardService.getSearchQueries(range),
+      dashboardService.getSearchPages(range),
+      dashboardService.getSearchTrends(range),
+      dashboardService.getUptimeStats(),
+      dashboardService.getUptimeTimeline(),
     ]);
 
-    const [overviewRes, trendsRes, sessionsRes, pagesRes, eventsRes, refRes, devRes] = results;
+    const [
+      overviewRes, trendsRes, sessionsRes, pagesRes, eventsRes, refRes, devRes,
+      playRes, scOverviewRes, scQueriesRes, scPagesRes, scTrendsRes, uptimeRes, uptimeTlRes,
+    ] = results;
     if (overviewRes.status === 'fulfilled') setAnalyticsOverview(overviewRes.value);
     if (trendsRes.status === 'fulfilled') setDailyTrends(trendsRes.value);
     if (sessionsRes.status === 'fulfilled') setDailySessions(sessionsRes.value);
@@ -622,6 +644,13 @@ export default function Dashboard() {
     if (eventsRes.status === 'fulfilled') setTopEvents(eventsRes.value);
     if (refRes.status === 'fulfilled') setReferrers(refRes.value);
     if (devRes.status === 'fulfilled') setDevices(devRes.value);
+    if (playRes.status === 'fulfilled') setPlayInstalls(playRes.value);
+    if (scOverviewRes.status === 'fulfilled') setSearchOverview(scOverviewRes.value);
+    if (scQueriesRes.status === 'fulfilled') setSearchQueries(scQueriesRes.value);
+    if (scPagesRes.status === 'fulfilled') setSearchPages(scPagesRes.value);
+    if (scTrendsRes.status === 'fulfilled') setSearchTrends(scTrendsRes.value);
+    if (uptimeRes.status === 'fulfilled') setUptimeStats(uptimeRes.value);
+    if (uptimeTlRes.status === 'fulfilled') setUptimeTimeline(uptimeTlRes.value);
 
     setAnalyticsLoaded(true);
     setAnalyticsLoading(false);
@@ -1098,6 +1127,138 @@ export default function Dashboard() {
             </>
           ) : analyticsOverview ? (
             <>
+              {/* ─── PLATFORM OVERVIEW ─── */}
+              <div className="section-heading"><h3>Platform Overview</h3><p>Google Play, Search Console, and uptime metrics</p></div>
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <div className="stat-card-header"><span>Active Installs (Play)</span><div className="stat-icon" style={{ background: 'var(--green-soft)' }}><Smartphone size={18} color="var(--green)" /></div></div>
+                  <div className="stat-value">{formatNum(playInstalls?.active_installs || 0)}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-card-header"><span>New Installs</span><div className="stat-icon" style={{ background: 'var(--blue-soft)' }}><Download size={18} color="var(--blue)" /></div></div>
+                  <div className="stat-value">{formatNum(playInstalls?.total_installs || 0)}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-card-header"><span>Search Clicks</span><div className="stat-icon" style={{ background: 'var(--purple-soft)' }}><MousePointerClick size={18} color="var(--purple)" /></div></div>
+                  <div className="stat-value">{formatNum(searchOverview?.clicks || 0)}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-card-header"><span>Search Impressions</span><div className="stat-icon" style={{ background: 'var(--yellow-soft)' }}><Eye size={18} color="var(--yellow)" /></div></div>
+                  <div className="stat-value">{formatNum(searchOverview?.impressions || 0)}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-card-header"><span>Avg Search Position</span><div className="stat-icon" style={{ background: 'var(--blue-soft)' }}><Search size={18} color="var(--blue)" /></div></div>
+                  <div className="stat-value">{searchOverview?.position ? searchOverview.position.toFixed(1) : '—'}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-card-header"><span>Uptime (24h)</span><div className="stat-icon" style={{ background: (uptimeStats?.uptime_percentage ?? 100) >= 99 ? 'var(--green-soft)' : (uptimeStats?.uptime_percentage ?? 0) >= 95 ? 'var(--yellow-soft)' : 'var(--red-soft, rgba(255,77,77,0.15))' }}><Activity size={18} color={(uptimeStats?.uptime_percentage ?? 100) >= 99 ? 'var(--green)' : (uptimeStats?.uptime_percentage ?? 0) >= 95 ? 'var(--yellow)' : '#FF4D4D'} /></div></div>
+                  <div className="stat-value">{uptimeStats?.uptime_percentage?.toFixed(2) || '—'}%</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-card-header"><span>Avg Response Time</span><div className="stat-icon" style={{ background: 'var(--green-soft)' }}><Clock size={18} color="var(--green)" /></div></div>
+                  <div className="stat-value">{uptimeStats?.avg_response_ms || 0}ms</div>
+                </div>
+              </div>
+
+              {/* Daily Play installs + Search trends */}
+              <div className="charts-row" style={{ marginTop: 24 }}>
+                <div className="chart-card">
+                  <div className="chart-card-header"><h3>Daily App Installs</h3><span className="chart-badge">{playInstalls?.daily_installs?.length || 0} days</span></div>
+                  {!playInstalls?.daily_installs?.length ? <p className="chart-empty">No data — verify Play Console API is configured</p> : (
+                    <div className="chart-container"><ResponsiveContainer width="100%" height={240}>
+                      <AreaChart data={playInstalls.daily_installs} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                        <XAxis dataKey="day" tick={{ fill: '#888', fontSize: 11 }} tickFormatter={(v) => { const d = new Date(v); return `${d.getDate()}/${d.getMonth() + 1}`; }} />
+                        <YAxis tick={{ fill: '#888', fontSize: 11 }} />
+                        <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 8 }} />
+                        <Area type="monotone" dataKey="installs" name="Installs" stroke="#4DFF88" fill="url(#chartGrad2)" strokeWidth={2} animationDuration={1200} />
+                        <Area type="monotone" dataKey="uninstalls" name="Uninstalls" stroke="#FF4D4D" fill="url(#chartGrad0)" fillOpacity={0.3} strokeWidth={2} animationDuration={1200} />
+                      </AreaChart>
+                    </ResponsiveContainer></div>
+                  )}
+                </div>
+                <div className="chart-card">
+                  <div className="chart-card-header"><h3>Search Console Trends</h3><span className="chart-badge">{searchTrends.length} days</span></div>
+                  {searchTrends.length === 0 ? <p className="chart-empty">No data — verify Search Console API is configured</p> : (
+                    <div className="chart-container"><ResponsiveContainer width="100%" height={240}>
+                      <AreaChart data={searchTrends} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                        <XAxis dataKey="date" tick={{ fill: '#888', fontSize: 11 }} tickFormatter={(v) => { const d = new Date(v); return `${d.getDate()}/${d.getMonth() + 1}`; }} />
+                        <YAxis tick={{ fill: '#888', fontSize: 11 }} />
+                        <Tooltip contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 8 }} />
+                        <Area type="monotone" dataKey="impressions" name="Impressions" stroke="#FFB74D" fill="url(#chartGrad3)" fillOpacity={0.25} strokeWidth={2} animationDuration={1200} />
+                        <Area type="monotone" dataKey="clicks" name="Clicks" stroke="#CF6EFF" fill="url(#chartGrad4)" strokeWidth={2} animationDuration={1200} />
+                      </AreaChart>
+                    </ResponsiveContainer></div>
+                  )}
+                </div>
+              </div>
+
+              {/* Top search queries + pages */}
+              <div className="charts-row">
+                <div className="chart-card">
+                  <div className="chart-card-header"><h3>Top Search Queries</h3><span className="chart-badge">{searchQueries.length} queries</span></div>
+                  {searchQueries.length === 0 ? <p className="chart-empty">No query data</p> : (
+                    <div className="analytics-table-container">
+                      <table className="analytics-table">
+                        <thead><tr><th>Query</th><th>Clicks</th><th>Impressions</th><th>Pos</th></tr></thead>
+                        <tbody>
+                          {searchQueries.map((q, i) => (
+                            <tr key={i}>
+                              <td className="analytics-event-name" title={q.query}>{q.query}</td>
+                              <td>{formatNum(q.clicks)}</td>
+                              <td>{formatNum(q.impressions)}</td>
+                              <td>{q.position.toFixed(1)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+                <div className="chart-card">
+                  <div className="chart-card-header"><h3>Top Search Pages</h3><span className="chart-badge">{searchPages.length} pages</span></div>
+                  {searchPages.length === 0 ? <p className="chart-empty">No page data</p> : (
+                    <div className="analytics-table-container">
+                      <table className="analytics-table">
+                        <thead><tr><th>Page</th><th>Clicks</th><th>Impressions</th><th>Pos</th></tr></thead>
+                        <tbody>
+                          {searchPages.map((p, i) => (
+                            <tr key={i}>
+                              <td className="analytics-url" title={p.page}>{(() => { try { return new URL(p.page).pathname || '/'; } catch { return p.page; } })()}</td>
+                              <td>{formatNum(p.clicks)}</td>
+                              <td>{formatNum(p.impressions)}</td>
+                              <td>{p.position.toFixed(1)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Uptime timeline */}
+              <div className="charts-row">
+                <div className="chart-card chart-card-wide">
+                  <div className="chart-card-header"><h3>Uptime Timeline (24h)</h3><span className="chart-badge">{uptimeStats?.total_pings || 0} pings · {uptimeStats?.downtime_count || 0} failures</span></div>
+                  {uptimeTimeline.length === 0 ? <p className="chart-empty">No uptime data yet — collecting...</p> : (
+                    <div className="uptime-bar">
+                      {uptimeTimeline.map((p, i) => (
+                        <div
+                          key={i}
+                          className={`uptime-segment uptime-${p.status}`}
+                          title={`${new Date(p.hour).toLocaleString()} — ${p.uptime_pct === null ? 'no data' : `${p.uptime_pct}% uptime`}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ─── POSTHOG ACTIVITY ─── */}
+              <div className="section-heading" style={{ marginTop: 32 }}><h3>PostHog Activity</h3><p>Product analytics from website + app</p></div>
+
               {/* Overview stat cards */}
               <div className="stats-grid">
                 <div className="stat-card">

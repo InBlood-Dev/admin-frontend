@@ -5,6 +5,8 @@ import type {
   DateRange, PremiumComparison,
   AnalyticsOverview, DailyTrendPoint, DailySessionPoint,
   TopPage, TopEvent, ReferrerPoint, DevicePoint,
+  PlayInstallStats, SearchConsoleOverview, SearchQueryRow, SearchPageRow,
+  SearchDailyPoint, UptimeStats, UptimePoint,
 } from '../types';
 
 function buildParams(range?: DateRange): Record<string, string> {
@@ -106,6 +108,43 @@ async function getAnalyticsDevices(range?: DateRange): Promise<DevicePoint[]> {
   return data.data;
 }
 
+// --- External Analytics ---
+
+async function getPlayInstalls(range?: DateRange): Promise<PlayInstallStats> {
+  const { data } = await api.get('/admin/external-analytics/play-installs', { params: buildParams(range) });
+  return data.data;
+}
+
+async function getSearchOverview(range?: DateRange): Promise<SearchConsoleOverview> {
+  const { data } = await api.get('/admin/external-analytics/search-console/overview', { params: buildParams(range) });
+  return data.data;
+}
+
+async function getSearchQueries(range?: DateRange): Promise<SearchQueryRow[]> {
+  const { data } = await api.get('/admin/external-analytics/search-console/queries', { params: buildParams(range) });
+  return data.data;
+}
+
+async function getSearchPages(range?: DateRange): Promise<SearchPageRow[]> {
+  const { data } = await api.get('/admin/external-analytics/search-console/pages', { params: buildParams(range) });
+  return data.data;
+}
+
+async function getSearchTrends(range?: DateRange): Promise<SearchDailyPoint[]> {
+  const { data } = await api.get('/admin/external-analytics/search-console/trends', { params: buildParams(range) });
+  return data.data;
+}
+
+async function getUptimeStats(): Promise<UptimeStats> {
+  const { data } = await api.get('/admin/external-analytics/uptime');
+  return data.data;
+}
+
+async function getUptimeTimeline(): Promise<UptimePoint[]> {
+  const { data } = await api.get('/admin/external-analytics/uptime/timeline');
+  return data.data;
+}
+
 const dashboardService = {
   getStats,
   getUserGrowth,
@@ -125,6 +164,13 @@ const dashboardService = {
   getAnalyticsTopEvents,
   getAnalyticsReferrers,
   getAnalyticsDevices,
+  getPlayInstalls,
+  getSearchOverview,
+  getSearchQueries,
+  getSearchPages,
+  getSearchTrends,
+  getUptimeStats,
+  getUptimeTimeline,
 };
 
 export default dashboardService;

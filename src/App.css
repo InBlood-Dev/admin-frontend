@@ -908,6 +908,45 @@
   color: var(--purple) !important;
 }
 
+/* Uptime timeline bar */
+.uptime-bar {
+  display: flex;
+  gap: 2px;
+  height: 40px;
+  margin-top: 12px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 4px;
+}
+
+.uptime-segment {
+  flex: 1;
+  border-radius: 3px;
+  transition: opacity 0.15s;
+  cursor: help;
+}
+
+.uptime-segment:hover {
+  opacity: 0.8;
+}
+
+.uptime-up {
+  background: linear-gradient(180deg, #69F0AE 0%, #2E7D32 100%);
+}
+
+.uptime-partial {
+  background: linear-gradient(180deg, #FFCC80 0%, #E65100 100%);
+}
+
+.uptime-down {
+  background: linear-gradient(180deg, #FF6B6B 0%, #CC2936 100%);
+}
+
+.uptime-no-data {
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .tracking-card-body {
   display: flex;
   flex-direction: column;

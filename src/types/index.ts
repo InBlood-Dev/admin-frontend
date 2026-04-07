@@ -586,3 +586,54 @@ export interface DevicePoint {
   device: string;
   count: number;
 }
+
+// --- External Analytics (Play, Search Console, Uptime) ---
+
+export interface PlayInstallStats {
+  active_installs: number;
+  total_installs: number;
+  total_uninstalls: number;
+  daily_installs: { day: string; installs: number; uninstalls: number }[];
+}
+
+export interface SearchConsoleOverview {
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
+export interface SearchQueryRow {
+  query: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
+export interface SearchPageRow {
+  page: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
+export interface SearchDailyPoint {
+  date: string;
+  clicks: number;
+  impressions: number;
+}
+
+export interface UptimeStats {
+  uptime_percentage: number;
+  avg_response_ms: number;
+  total_pings: number;
+  downtime_count: number;
+}
+
+export interface UptimePoint {
+  hour: string;
+  status: 'up' | 'down' | 'partial' | 'no-data';
+  uptime_pct: number | null;
+}
