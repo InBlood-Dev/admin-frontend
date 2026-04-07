@@ -1150,13 +1150,21 @@ export default function Dashboard() {
                   <div className="stat-card-header"><span>Avg Search Position</span><div className="stat-icon" style={{ background: 'var(--blue-soft)' }}><Search size={18} color="var(--blue)" /></div></div>
                   <div className="stat-value">{searchOverview?.position ? searchOverview.position.toFixed(1) : '—'}</div>
                 </div>
-                <div className="stat-card">
-                  <div className="stat-card-header"><span>Uptime (24h)</span><div className="stat-icon" style={{ background: (uptimeStats?.uptime_percentage ?? 100) >= 99 ? 'var(--green-soft)' : (uptimeStats?.uptime_percentage ?? 0) >= 95 ? 'var(--yellow-soft)' : 'var(--red-soft, rgba(255,77,77,0.15))' }}><Activity size={18} color={(uptimeStats?.uptime_percentage ?? 100) >= 99 ? 'var(--green)' : (uptimeStats?.uptime_percentage ?? 0) >= 95 ? 'var(--yellow)' : '#FF4D4D'} /></div></div>
-                  <div className="stat-value">{uptimeStats?.uptime_percentage?.toFixed(2) || '—'}%</div>
-                </div>
+                {(() => {
+                  const pct = uptimeStats?.uptime_percentage;
+                  const hasData = pct !== null && pct !== undefined;
+                  const bg = !hasData ? 'var(--bg-card)' : pct >= 99 ? 'var(--green-soft)' : pct >= 95 ? 'var(--yellow-soft)' : 'var(--red-soft)';
+                  const color = !hasData ? 'var(--text-muted)' : pct >= 99 ? 'var(--green)' : pct >= 95 ? 'var(--yellow)' : '#FF4D4D';
+                  return (
+                    <div className="stat-card">
+                      <div className="stat-card-header"><span>Uptime (24h)</span><div className="stat-icon" style={{ background: bg }}><Activity size={18} color={color} /></div></div>
+                      <div className="stat-value">{hasData ? `${pct.toFixed(2)}%` : '—'}</div>
+                    </div>
+                  );
+                })()}
                 <div className="stat-card">
                   <div className="stat-card-header"><span>Avg Response Time</span><div className="stat-icon" style={{ background: 'var(--green-soft)' }}><Clock size={18} color="var(--green)" /></div></div>
-                  <div className="stat-value">{uptimeStats?.avg_response_ms || 0}ms</div>
+                  <div className="stat-value">{uptimeStats?.avg_response_ms != null ? `${uptimeStats.avg_response_ms}ms` : '—'}</div>
                 </div>
               </div>
 

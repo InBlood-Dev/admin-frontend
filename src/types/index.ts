@@ -626,8 +626,8 @@ export interface SearchDailyPoint {
 }
 
 export interface UptimeStats {
-  uptime_percentage: number;
-  avg_response_ms: number;
+  uptime_percentage: number | null;
+  avg_response_ms: number | null;
   total_pings: number;
   downtime_count: number;
 }
