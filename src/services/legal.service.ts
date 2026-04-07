@@ -6,6 +6,7 @@ export interface LegalPage {
   title: string;
   content: string;
   last_updated: string | null;
+  is_active: boolean;
   updated_by: { id: string; name: string } | null;
 }
 
@@ -19,7 +20,7 @@ async function getPage(slug: string): Promise<LegalPage> {
   return data.data;
 }
 
-async function savePage(slug: string, payload: { title: string; content: string }): Promise<LegalPage> {
+async function savePage(slug: string, payload: { title: string; content: string; is_active?: boolean }): Promise<LegalPage> {
   const { data } = await api.put(`/admin/legal-pages/${slug}`, payload);
   return data.data;
 }

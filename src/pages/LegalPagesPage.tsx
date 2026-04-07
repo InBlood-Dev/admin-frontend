@@ -32,6 +32,7 @@ export default function LegalPagesPage() {
   const [formTitle, setFormTitle] = useState('');
   const [formSlug, setFormSlug] = useState('');
   const [formContent, setFormContent] = useState('');
+  const [formIsActive, setFormIsActive] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [error, setError] = useState<{ title: string; message: string } | null>(null);
@@ -57,6 +58,7 @@ export default function LegalPagesPage() {
     setFormTitle(page.title);
     setFormSlug(page.slug);
     setFormContent(page.content);
+    setFormIsActive(!!page.is_active);
   }
 
   function openCreate(preset?: { slug: string; title: string }) {
@@ -65,6 +67,7 @@ export default function LegalPagesPage() {
     setFormTitle(preset?.title ?? '');
     setFormSlug(preset?.slug ?? '');
     setFormContent('');
+    setFormIsActive(false);
   }
 
   function closeEditor() {
@@ -79,7 +82,7 @@ export default function LegalPagesPage() {
     }
     setSaving(true);
     try {
-      await legalService.savePage(formSlug.trim(), { title: formTitle.trim(), content: formContent });
+      await legalService.savePage(formSlug.trim(), { title: formTitle.trim(), content: formContent, is_active: formIsActive });
       closeEditor();
       await fetchPages();
     } catch (err) {
@@ -167,6 +170,19 @@ export default function LegalPagesPage() {
               placeholder="<h2>Section Title</h2>\n<p>Content paragraph...</p>"
             />
           </div>
+          <div className="legal-editor-field">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={formIsActive}
+                onChange={e => setFormIsActive(e.target.checked)}
+              />
+              <span>Active in footer</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>
+                (Shown as a separate link next to "Legal" in the website footer. Only one page can be active at a time.)
+              </span>
+            </label>
+          </div>
           <div className="legal-preview-toggle">
             <details>
               <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>Preview rendered content</summary>
@@ -240,6 +256,11 @@ export default function LegalPagesPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <FileText size={14} color="var(--text-muted)" />
                           {page.title}
+                          {page.is_active && (
+                            <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'rgba(34,197,94,0.15)', color: '#22c55e', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                              Active
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td style={{ padding: '14px 22px', fontSize: 12, color: 'var(--text-secondary)' }}>
