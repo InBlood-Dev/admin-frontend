@@ -179,7 +179,7 @@ export default function LegalPagesPage() {
               />
               <span>Active in footer</span>
               <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>
-                (Shown as a separate link next to "Legal" in the website footer. Only one page can be active at a time.)
+                (Shown as a separate link in the website footer. Multiple pages can be active.)
               </span>
             </label>
           </div>
