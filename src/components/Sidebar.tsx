@@ -23,8 +23,8 @@ export default function Sidebar({ onLogout, pendingReports, pendingVerifications
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <img src="/logo.png" alt="InBlood" className="logo-img" />
-        <h1>InBlood</h1>
+        <img src="/logo.png" alt="inBlood" className="logo-img" />
+        <h1 style={{ fontFamily: "'Archivo Black', sans-serif" }}><span style={{ color: 'var(--accent)' }}>in</span>Blood</h1>
         <span>Admin</span>
       </div>
 
@@ -79,7 +79,7 @@ export default function Sidebar({ onLogout, pendingReports, pendingVerifications
       </nav>
 
       <div className="sidebar-footer">
-        v2.5.0 &middot; InBlood Admin
+        v2.5.0 &middot; inBlood Admin
       </div>
     </aside>
   );

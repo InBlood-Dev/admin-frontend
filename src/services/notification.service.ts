@@ -83,6 +83,16 @@ async function cancelScheduledNotification(id: string): Promise<ScheduledNotific
   return data.data;
 }
 
+async function bulkCancelScheduled(ids: string[]): Promise<{ cancelled: number; failed: number; failedIds: string[] }> {
+  const { data } = await api.post('/admin/notifications/scheduled/bulk-cancel', { ids });
+  return data.data;
+}
+
+async function bulkDeleteScheduled(ids: string[]): Promise<{ deleted: number }> {
+  const { data } = await api.post('/admin/notifications/scheduled/bulk-delete', { ids });
+  return data.data;
+}
+
 async function searchUsers(search: string): Promise<UserSearchResult[]> {
   const { data } = await api.get('/admin/notifications/search-users', { params: { search } });
   return data.data;
@@ -95,6 +105,8 @@ const notificationService = {
   scheduleNotification,
   getScheduledNotifications,
   cancelScheduledNotification,
+  bulkCancelScheduled,
+  bulkDeleteScheduled,
   searchUsers,
 };
 

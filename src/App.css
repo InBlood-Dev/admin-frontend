@@ -2175,6 +2175,99 @@
   resize: vertical;
 }
 
+/* Schedule mode toggle */
+.schedule-toggle {
+  display: inline-flex;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.schedule-toggle-btn {
+  padding: 8px 18px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  color: var(--text-secondary);
+  background: none;
+  border-right: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.schedule-toggle-btn:last-child {
+  border-right: none;
+}
+
+.schedule-toggle-btn.active {
+  background: var(--accent);
+  color: white;
+}
+
+.schedule-toggle-btn:not(.active):hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+/* Schedule panel */
+.schedule-panel {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.schedule-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.schedule-preset-btn {
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all var(--transition);
+  background: rgba(255,255,255,0.05);
+  color: var(--text-secondary);
+}
+
+.schedule-preset-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.schedule-preset-btn.active {
+  background: var(--accent);
+  color: white;
+}
+
+.schedule-datetime-row {
+  display: flex;
+  gap: 10px;
+}
+
+.schedule-datetime-row .form-input {
+  flex: 1;
+}
+
+.schedule-preview {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* Inline profile card */
 .inline-profile {
   background: var(--bg-card);
@@ -2681,12 +2774,6 @@
 }
 
 /* ── Bulk Actions ────────────────────────────────────────── */
-.bulk-checkbox {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
 
 .bulk-action-bar {
   display: flex;
@@ -2707,6 +2794,28 @@
 
 tr.row-selected {
   background: rgba(var(--accent-rgb, 99, 102, 241), 0.08);
+}
+
+.select-all-banner {
+  padding: 8px 16px;
+  background: var(--accent-soft);
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.select-all-banner button {
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  background: none;
+  text-decoration: underline;
+  font-size: 12px;
+}
+
+.select-all-banner button:hover {
+  color: var(--accent-hover);
 }
 
 /* ── Bulk Result Modal ──────────────────────────────────── */

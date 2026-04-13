@@ -195,19 +195,23 @@ export default function VerificationsPage() {
   }
 
   // ─── Selection helpers ───────────────────────────────────────────────
+  const [allRecordsSelected, setAllRecordsSelected] = useState(false);
   const pendingVerifications = verifications.filter((v) => v.status === 'pending');
   const allPendingSelected = pendingVerifications.length > 0 && pendingVerifications.every((v) => selectedIds.has(v.user_id));
   const somePendingSelected = pendingVerifications.some((v) => selectedIds.has(v.user_id));
+  const showSelectAllBanner = allPendingSelected && !allRecordsSelected && pagination.total > pendingVerifications.length;
 
   function toggleSelectAll() {
     if (allPendingSelected) {
       setSelectedIds(new Set());
+      setAllRecordsSelected(false);
     } else {
       setSelectedIds(new Set(pendingVerifications.map((v) => v.user_id)));
     }
   }
 
   function toggleSelect(userId: string) {
+    setAllRecordsSelected(false);
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(userId)) next.delete(userId);
@@ -216,9 +220,26 @@ export default function VerificationsPage() {
     });
   }
 
+  async function handleSelectAllRecords() {
+    try {
+      const res = await verificationService.listVerifications({
+        page: 1,
+        limit: pagination.total,
+        status: 'pending' as AdminVerification['status'],
+        sort_by: 'created_at',
+        sort_order: 'desc',
+      });
+      setSelectedIds(new Set(res.verifications.filter((v) => v.status === 'pending').map((v) => v.user_id)));
+      setAllRecordsSelected(true);
+    } catch (err) {
+      setError({ title: 'Failed to select all', message: extractErrorMessage(err) });
+    }
+  }
+
   // Clear selection on page/filter change
   useEffect(() => {
     setSelectedIds(new Set());
+    setAllRecordsSelected(false);
   }, [page, statusFilter]);
 
   // ─── Bulk action handlers ──────────────────────────────────────────
@@ -326,7 +347,9 @@ export default function VerificationsPage() {
 
         {selectedIds.size > 0 && (
           <div className="bulk-action-bar">
-            <span className="bulk-action-count">{selectedIds.size} selected</span>
+            <span className="bulk-action-count">
+              {allRecordsSelected ? `All ${selectedIds.size}` : selectedIds.size} selected
+            </span>
             <button
               className="btn btn-green btn-sm"
               onClick={() => setBulkConfirmAction('approve')}
@@ -343,11 +366,18 @@ export default function VerificationsPage() {
             </button>
             <button
               className="btn btn-ghost btn-sm"
-              onClick={() => setSelectedIds(new Set())}
+              onClick={() => { setSelectedIds(new Set()); setAllRecordsSelected(false); }}
               disabled={actionLoading}
             >
               Clear
             </button>
+          </div>
+        )}
+
+        {showSelectAllBanner && (
+          <div className="select-all-banner">
+            All {pendingVerifications.length} pending items on this page are selected.{' '}
+            <button onClick={handleSelectAllRecords}>Select all {pagination.total} pending records</button>
           </div>
         )}
 

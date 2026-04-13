@@ -90,27 +90,47 @@ export default function StoriesPage() {
     fetchStories(page, showDeleted, mediaFilter);
   }, [page, showDeleted, mediaFilter, fetchStories]);
 
+  const [allRecordsSelected, setAllRecordsSelected] = useState(false);
+
   // Clear selection when page/filter changes
   useEffect(() => {
     setSelectedIds(new Set());
+    setAllRecordsSelected(false);
   }, [page, showDeleted, mediaFilter]);
 
   const selectableStories = showDeleted ? stories.filter((s) => s.is_deleted) : stories.filter((s) => !s.is_deleted);
   const allSelected = selectableStories.length > 0 && selectableStories.every((s) => selectedIds.has(s.id));
   const someSelected = selectableStories.some((s) => selectedIds.has(s.id));
+  const showSelectAllBanner = allSelected && !allRecordsSelected && pagination.total > selectableStories.length;
 
   function toggleSelectAll() {
-    if (allSelected) setSelectedIds(new Set());
+    if (allSelected) { setSelectedIds(new Set()); setAllRecordsSelected(false); }
     else setSelectedIds(new Set(selectableStories.map((s) => s.id)));
   }
 
   function toggleSelect(id: string) {
+    setAllRecordsSelected(false);
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  }
+
+  async function handleSelectAllRecords() {
+    try {
+      const params: Parameters<typeof storyService.listStories>[0] = {
+        page: 1, limit: pagination.total, sort_by: 'created_at', sort_order: 'desc', show_deleted: showDeleted,
+      };
+      if (mediaFilter) params.media_type = mediaFilter as 'image' | 'video';
+      const res = await storyService.listStories(params);
+      const filterable = showDeleted ? res.stories.filter((s) => s.is_deleted) : res.stories.filter((s) => !s.is_deleted);
+      setSelectedIds(new Set(filterable.map((s) => s.id)));
+      setAllRecordsSelected(true);
+    } catch (err) {
+      setError({ title: 'Failed to select all', message: extractErrorMessage(err) });
+    }
   }
 
   async function runBulk(action: 'delete' | 'restore' | 'clear') {
@@ -253,53 +273,63 @@ export default function StoriesPage() {
       </div>
 
       {selectableStories.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-            <input
-              type="checkbox"
-              className="bulk-checkbox"
-              checked={allSelected}
-              ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
-              onChange={toggleSelectAll}
-            />
-            Select all
-          </label>
-          {selectedIds.size > 0 && (
-            <div className="bulk-action-bar" style={{ marginTop: 0 }}>
-              <span className="bulk-action-count">{selectedIds.size} selected</span>
-              {!showDeleted ? (
-                <>
-                  <button
-                    className="btn btn-sm btn-danger"
-                    onClick={() => setBulkConfirm('delete')}
-                    disabled={actionLoading}
-                  >
-                    Delete Selected
-                  </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 0, margin: '12px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+              <input
+                type="checkbox"
+                className="bulk-checkbox"
+                checked={allSelected}
+                ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                onChange={toggleSelectAll}
+              />
+              Select all
+            </label>
+            {selectedIds.size > 0 && (
+              <div className="bulk-action-bar" style={{ marginTop: 0 }}>
+                <span className="bulk-action-count">
+                  {allRecordsSelected ? `All ${selectedIds.size}` : selectedIds.size} selected
+                </span>
+                {!showDeleted ? (
+                  <>
+                    <button
+                      className="btn btn-sm btn-danger"
+                      onClick={() => setBulkConfirm('delete')}
+                      disabled={actionLoading}
+                    >
+                      Delete Selected
+                    </button>
+                    <button
+                      className="btn btn-sm btn-green"
+                      onClick={() => setBulkConfirm('clear')}
+                      disabled={actionLoading}
+                    >
+                      Clear Selected
+                    </button>
+                  </>
+                ) : (
                   <button
                     className="btn btn-sm btn-green"
-                    onClick={() => setBulkConfirm('clear')}
+                    onClick={() => setBulkConfirm('restore')}
                     disabled={actionLoading}
                   >
-                    Clear Selected
+                    Restore Selected
                   </button>
-                </>
-              ) : (
+                )}
                 <button
-                  className="btn btn-sm btn-green"
-                  onClick={() => setBulkConfirm('restore')}
+                  className="btn btn-sm btn-ghost"
+                  onClick={() => { setSelectedIds(new Set()); setAllRecordsSelected(false); }}
                   disabled={actionLoading}
                 >
-                  Restore Selected
+                  Clear
                 </button>
-              )}
-              <button
-                className="btn btn-sm btn-ghost"
-                onClick={() => setSelectedIds(new Set())}
-                disabled={actionLoading}
-              >
-                Clear
-              </button>
+              </div>
+            )}
+          </div>
+          {showSelectAllBanner && (
+            <div className="select-all-banner" style={{ borderRadius: 'var(--radius-sm)', marginTop: 8 }}>
+              All {selectableStories.length} stories on this page are selected.{' '}
+              <button onClick={handleSelectAllRecords}>Select all {pagination.total} records</button>
             </div>
           )}
         </div>

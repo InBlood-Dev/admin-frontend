@@ -125,27 +125,47 @@ export default function ReportsPage() {
     fetchReports(page, statusFilter, typeFilter);
   }, [page, statusFilter, typeFilter, fetchReports]);
 
+  const [allRecordsSelected, setAllRecordsSelected] = useState(false);
+
   useEffect(() => {
     setSelectedIds(new Set());
+    setAllRecordsSelected(false);
   }, [page, statusFilter, typeFilter]);
 
   // Selectable = pending or reviewed (open reports)
   const selectableReports = reports.filter((r) => r.status === 'pending' || r.status === 'reviewed');
   const allSelected = selectableReports.length > 0 && selectableReports.every((r) => selectedIds.has(r.id));
   const someSelected = selectableReports.some((r) => selectedIds.has(r.id));
+  const showSelectAllBanner = allSelected && !allRecordsSelected && pagination.total > selectableReports.length;
 
   function toggleSelectAll() {
-    if (allSelected) setSelectedIds(new Set());
+    if (allSelected) { setSelectedIds(new Set()); setAllRecordsSelected(false); }
     else setSelectedIds(new Set(selectableReports.map((r) => r.id)));
   }
 
   function toggleSelect(id: string) {
+    setAllRecordsSelected(false);
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  }
+
+  async function handleSelectAllRecords() {
+    try {
+      const params: Parameters<typeof reportService.listReports>[0] = {
+        page: 1, limit: pagination.total, sort_by: 'created_at', sort_order: 'desc',
+      };
+      if (statusFilter) params.status = statusFilter as AdminReport['status'];
+      if (typeFilter) params.report_type = typeFilter;
+      const res = await reportService.listReports(params);
+      setSelectedIds(new Set(res.reports.filter((r) => r.status === 'pending' || r.status === 'reviewed').map((r) => r.id)));
+      setAllRecordsSelected(true);
+    } catch (err) {
+      setError({ title: 'Failed to select all', message: extractErrorMessage(err) });
+    }
   }
 
   async function runBulk(kind: 'review' | 'dismiss' | 'ban' | 'warn' | 'delete_content') {
@@ -294,7 +314,9 @@ export default function ReportsPage() {
 
         {selectedIds.size > 0 && (
           <div className="bulk-action-bar">
-            <span className="bulk-action-count">{selectedIds.size} selected</span>
+            <span className="bulk-action-count">
+              {allRecordsSelected ? `All ${selectedIds.size}` : selectedIds.size} selected
+            </span>
             <button className="btn btn-sm btn-ghost" onClick={() => setBulkConfirm('review')} disabled={actionLoading}>
               Review
             </button>
@@ -310,9 +332,16 @@ export default function ReportsPage() {
             <button className="btn btn-sm btn-ghost" onClick={() => setBulkConfirm('dismiss')} disabled={actionLoading}>
               Dismiss
             </button>
-            <button className="btn btn-sm btn-ghost" onClick={() => setSelectedIds(new Set())} disabled={actionLoading}>
+            <button className="btn btn-sm btn-ghost" onClick={() => { setSelectedIds(new Set()); setAllRecordsSelected(false); }} disabled={actionLoading}>
               Clear
             </button>
+          </div>
+        )}
+
+        {showSelectAllBanner && (
+          <div className="select-all-banner">
+            All {selectableReports.length} open reports on this page are selected.{' '}
+            <button onClick={handleSelectAllRecords}>Select all {pagination.total} records</button>
           </div>
         )}
 

@@ -46,7 +46,7 @@ export default function Login() {
             <div className="logo-icon">
               <Heart size={22} color="white" fill="white" />
             </div>
-            <h1>InBlood</h1>
+            <h1 style={{ fontFamily: "'Archivo Black', sans-serif" }}><span style={{ color: 'var(--accent)' }}>in</span>Blood</h1>
             <p>Admin Dashboard</p>
           </div>
           <form className="login-form" onSubmit={handleSubmit}>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Send, Bell, Clock, ChevronLeft, ChevronRight, X, Search, UserPlus } from 'lucide-react';
+import { Send, Bell, Clock, ChevronLeft, ChevronRight, X, Search, UserPlus, Calendar, Trash2 } from 'lucide-react';
 import notificationService from '../services/notification.service';
 import type {
   BroadcastItem,
@@ -42,6 +42,47 @@ function formatTimeAgo(dateStr: string | null): string {
   return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// ─── Schedule Presets ──────────────────────────────────────────────────────────
+
+interface Preset { label: string; getDate: () => Date }
+
+function getPresets(): Preset[] {
+  return [
+    { label: 'In 30 min', getDate: () => new Date(Date.now() + 30 * 60 * 1000) },
+    { label: 'In 1 hour', getDate: () => new Date(Date.now() + 60 * 60 * 1000) },
+    { label: 'In 3 hours', getDate: () => new Date(Date.now() + 3 * 60 * 60 * 1000) },
+    {
+      label: 'Tomorrow 9 AM', getDate: () => {
+        const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); return d;
+      },
+    },
+    {
+      label: 'Tomorrow 6 PM', getDate: () => {
+        const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(18, 0, 0, 0); return d;
+      },
+    },
+  ];
+}
+
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function toLocalTimeStr(d: Date): string {
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${h}:${min}`;
+}
+
+function todayDateStr(): string {
+  return toLocalDateStr(new Date());
+}
+
+// ─── Component ─────────────────────────────────────────────────────────────────
+
 export default function NotificationsPage() {
   const [tab, setTab] = useState<'send' | 'history' | 'scheduled'>('send');
 
@@ -52,8 +93,12 @@ export default function NotificationsPage() {
   const [segmentCount, setSegmentCount] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [scheduleMode, setScheduleMode] = useState(false);
-  const [scheduledAt, setScheduledAt] = useState('');
+
+  // Schedule
+  const [sendMode, setSendMode] = useState<'now' | 'schedule'>('now');
+  const [schedDate, setSchedDate] = useState('');
+  const [schedTime, setSchedTime] = useState('');
+  const [activePreset, setActivePreset] = useState<string | null>(null);
 
   // Specific users
   const [selectedUsers, setSelectedUsers] = useState<UserSearchResult[]>([]);
@@ -76,11 +121,20 @@ export default function NotificationsPage() {
   const [scheduledPage, setScheduledPage] = useState(1);
   const [scheduledLoading, setScheduledLoading] = useState(false);
 
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+
   const [error, setError] = useState<{ title: string; message: string } | null>(null);
 
   const isSpecificUsers = segment === 'specific_users';
+  const isSchedule = sendMode === 'schedule';
 
-  // Fetch segment count when segment changes
+  // Resolved scheduled datetime
+  const resolvedDate = schedDate && schedTime ? new Date(`${schedDate}T${schedTime}`) : null;
+  const isDateValid = resolvedDate ? resolvedDate.getTime() > Date.now() + 60 * 1000 : false;
+
+  // Fetch segment count
   useEffect(() => {
     if (isSpecificUsers) {
       setSegmentCount(selectedUsers.length);
@@ -108,7 +162,6 @@ export default function NotificationsPage() {
       setSearching(true);
       try {
         const results = await notificationService.searchUsers(userSearch.trim());
-        // Filter out already-selected users
         const filtered = results.filter((u) => !selectedUsers.some((s) => s.id === u.id));
         setSearchResults(filtered);
         setShowDropdown(true);
@@ -119,17 +172,13 @@ export default function NotificationsPage() {
       }
     }, 400);
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [userSearch, selectedUsers]);
 
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setShowDropdown(false);
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -144,16 +193,12 @@ export default function NotificationsPage() {
       setHistoryPagination(res.pagination);
     } catch (err) {
       setError({ title: 'Failed to load history', message: extractErrorMessage(err) });
-    } finally {
-      setHistoryLoading(false);
-    }
+    } finally { setHistoryLoading(false); }
   }, []);
 
-  useEffect(() => {
-    if (tab === 'history') fetchHistory(historyPage);
-  }, [tab, historyPage, fetchHistory]);
+  useEffect(() => { if (tab === 'history') fetchHistory(historyPage); }, [tab, historyPage, fetchHistory]);
 
-  // Fetch scheduled notifications
+  // Fetch scheduled
   const fetchScheduled = useCallback(async (p: number) => {
     setScheduledLoading(true);
     try {
@@ -162,14 +207,25 @@ export default function NotificationsPage() {
       setScheduledPagination(res.pagination);
     } catch (err) {
       setError({ title: 'Failed to load scheduled notifications', message: extractErrorMessage(err) });
-    } finally {
-      setScheduledLoading(false);
-    }
+    } finally { setScheduledLoading(false); }
   }, []);
 
-  useEffect(() => {
-    if (tab === 'scheduled') fetchScheduled(scheduledPage);
-  }, [tab, scheduledPage, fetchScheduled]);
+  useEffect(() => { if (tab === 'scheduled') fetchScheduled(scheduledPage); }, [tab, scheduledPage, fetchScheduled]);
+
+  // ─── Handlers ──────────────────────────────────────────────────────────────
+
+  function applyPreset(preset: Preset) {
+    const d = preset.getDate();
+    setSchedDate(toLocalDateStr(d));
+    setSchedTime(toLocalTimeStr(d));
+    setActivePreset(preset.label);
+  }
+
+  function handleDateTimeChange(date: string, time: string) {
+    setSchedDate(date);
+    setSchedTime(time);
+    setActivePreset(null); // clear preset selection when manually changing
+  }
 
   function addUser(user: UserSearchResult) {
     setSelectedUsers((prev) => [...prev, user]);
@@ -193,22 +249,20 @@ export default function NotificationsPage() {
       ...(isSpecificUsers && { user_ids: selectedUsers.map((u) => u.id) }),
     };
 
-    if (scheduleMode) {
-      if (!scheduledAt) return;
+    if (isSchedule) {
+      if (!resolvedDate || !isDateValid) return;
       setSending(true);
       try {
         await notificationService.scheduleNotification({
           ...payload,
-          scheduled_at: new Date(scheduledAt).toISOString(),
+          scheduled_at: resolvedDate.toISOString(),
         });
         resetForm();
         setSuccessMessage('Notification scheduled successfully!');
         setTimeout(() => setSuccessMessage(''), 3000);
       } catch (err) {
         setError({ title: 'Failed to schedule notification', message: extractErrorMessage(err) });
-      } finally {
-        setSending(false);
-      }
+      } finally { setSending(false); }
       return;
     }
 
@@ -220,17 +274,17 @@ export default function NotificationsPage() {
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       setError({ title: 'Failed to send notification', message: extractErrorMessage(err) });
-    } finally {
-      setSending(false);
-    }
+    } finally { setSending(false); }
   }
 
   function resetForm() {
     setTitle('');
     setBody('');
     setSegment('all');
-    setScheduledAt('');
-    setScheduleMode(false);
+    setSendMode('now');
+    setSchedDate('');
+    setSchedTime('');
+    setActivePreset(null);
     setSelectedUsers([]);
     setUserSearch('');
   }
@@ -244,6 +298,80 @@ export default function NotificationsPage() {
       setError({ title: 'Failed to cancel notification', message: extractErrorMessage(err) });
     }
   }
+
+  // ─── Bulk actions ──────────────────────────────────────────────────────────
+
+  const [allRecordsSelected, setAllRecordsSelected] = useState(false);
+
+  // Clear selection on page change
+  useEffect(() => { setSelectedIds(new Set()); setAllRecordsSelected(false); }, [scheduledPage]);
+
+  const allPageSelected = scheduledNotifications.length > 0 && scheduledNotifications.every((n) => selectedIds.has(n.id));
+  const someSelected = selectedIds.size > 0;
+  const totalRecords = scheduledPagination.total;
+  const showSelectAllBanner = allPageSelected && !allRecordsSelected && totalRecords > scheduledNotifications.length;
+
+  const selectedScheduledCount = scheduledNotifications.filter((n) => selectedIds.has(n.id) && n.status === 'scheduled').length;
+  const selectedCompletedCount = scheduledNotifications.filter((n) => selectedIds.has(n.id) && ['sent', 'failed', 'cancelled'].includes(n.status)).length;
+
+  function toggleSelectAll() {
+    if (allPageSelected) {
+      setSelectedIds(new Set());
+      setAllRecordsSelected(false);
+    } else {
+      setSelectedIds(new Set(scheduledNotifications.map((n) => n.id)));
+    }
+  }
+
+  function toggleSelect(id: string) {
+    setAllRecordsSelected(false);
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleSelectAllRecords() {
+    try {
+      const res = await notificationService.getScheduledNotifications({ page: 1, limit: totalRecords });
+      setSelectedIds(new Set(res.notifications.map((n) => n.id)));
+      setAllRecordsSelected(true);
+    } catch (err) {
+      setError({ title: 'Failed to select all', message: extractErrorMessage(err) });
+    }
+  }
+
+  async function handleBulkCancel() {
+    const count = allRecordsSelected ? selectedIds.size : selectedScheduledCount;
+    if (!window.confirm(`Cancel ${count} scheduled notification(s)?`)) return;
+    setBulkLoading(true);
+    try {
+      await notificationService.bulkCancelScheduled([...selectedIds]);
+      setSelectedIds(new Set());
+      setAllRecordsSelected(false);
+      fetchScheduled(scheduledPage);
+    } catch (err) {
+      setError({ title: 'Bulk cancel failed', message: extractErrorMessage(err) });
+    } finally { setBulkLoading(false); }
+  }
+
+  async function handleBulkDelete() {
+    const count = allRecordsSelected ? selectedIds.size : selectedCompletedCount;
+    if (!window.confirm(`Delete ${count} completed notification(s)? This cannot be undone.`)) return;
+    setBulkLoading(true);
+    try {
+      await notificationService.bulkDeleteScheduled([...selectedIds]);
+      setSelectedIds(new Set());
+      setAllRecordsSelected(false);
+      fetchScheduled(scheduledPage);
+    } catch (err) {
+      setError({ title: 'Bulk delete failed', message: extractErrorMessage(err) });
+    } finally { setBulkLoading(false); }
+  }
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
 
   const segmentLabel = (s: string) => SEGMENTS.find((seg) => seg.value === s)?.label ?? s;
 
@@ -262,20 +390,11 @@ export default function NotificationsPage() {
     return <span className="badge badge-red">Failed</span>;
   };
 
-  // Minimum datetime for the scheduler (2 minutes from now, in local time)
-  const getMinDatetime = () => {
-    const d = new Date(Date.now() + 2 * 60 * 1000);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
-
   const canSubmit = title.trim() && body.trim() && !sending
     && (!isSpecificUsers || selectedUsers.length > 0)
-    && (!scheduleMode || scheduledAt);
+    && (!isSchedule || isDateValid);
+
+  // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="animate-in">
@@ -298,11 +417,13 @@ export default function NotificationsPage() {
         </button>
       </div>
 
+      {/* ─── Send Tab ─────────────────────────────────────────────────────── */}
       {tab === 'send' && (
         <div className="table-card" style={{ maxWidth: 600 }}>
           <div className="table-header"><h3>New Broadcast</h3></div>
           <div style={{ padding: 24 }}>
             <div className="notif-form">
+              {/* Segment */}
               <div className="form-group">
                 <label>Target Segment</label>
                 <select
@@ -311,10 +432,7 @@ export default function NotificationsPage() {
                   value={segment}
                   onChange={(e) => {
                     setSegment(e.target.value);
-                    if (e.target.value !== 'specific_users') {
-                      setSelectedUsers([]);
-                      setUserSearch('');
-                    }
+                    if (e.target.value !== 'specific_users') { setSelectedUsers([]); setUserSearch(''); }
                   }}
                 >
                   {SEGMENTS.map((s) => (
@@ -348,15 +466,11 @@ export default function NotificationsPage() {
                         onChange={(e) => setUserSearch(e.target.value)}
                       />
                       {searching && (
-                        <div style={{
-                          position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                        }}>
+                        <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}>
                           <div className="spinner" style={{ width: 14, height: 14 }} />
                         </div>
                       )}
                     </div>
-
-                    {/* Search results dropdown */}
                     {showDropdown && searchResults.length > 0 && (
                       <div style={{
                         position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
@@ -379,16 +493,10 @@ export default function NotificationsPage() {
                           >
                             <UserPlus size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                             <div style={{ minWidth: 0, flex: 1 }}>
-                              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
-                                {user.name}
-                              </div>
-                              <div style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {user.email}
-                              </div>
+                              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{user.name}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
                             </div>
-                            <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>
-                              {formatTimeAgo(user.last_active_at)}
-                            </span>
+                            <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>{formatTimeAgo(user.last_active_at)}</span>
                           </button>
                         ))}
                       </div>
@@ -408,61 +516,79 @@ export default function NotificationsPage() {
                 </div>
               )}
 
+              {/* Title */}
               <div className="form-group">
                 <label>Title</label>
-                <input
-                  className="form-input"
-                  placeholder="Notification title..."
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  maxLength={200}
-                />
+                <input className="form-input" placeholder="Notification title..." value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} />
               </div>
+
+              {/* Body */}
               <div className="form-group">
                 <label>Body</label>
-                <textarea
-                  className="form-input"
-                  placeholder="Notification body..."
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  maxLength={1000}
-                />
+                <textarea className="form-input" placeholder="Notification body..." value={body} onChange={(e) => setBody(e.target.value)} maxLength={1000} />
               </div>
 
-              <label
-                htmlFor="schedule-toggle"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  cursor: 'pointer', userSelect: 'none',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  id="schedule-toggle"
-                  checked={scheduleMode}
-                  onChange={(e) => {
-                    setScheduleMode(e.target.checked);
-                    if (!e.target.checked) setScheduledAt('');
-                  }}
-                  style={{ width: 16, height: 16, accentColor: 'var(--accent)' }}
-                />
-                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Schedule for later</span>
-              </label>
+              {/* Send Mode Toggle */}
+              <div className="form-group">
+                <label>Delivery</label>
+                <div className="schedule-toggle">
+                  <button
+                    className={`schedule-toggle-btn ${sendMode === 'now' ? 'active' : ''}`}
+                    onClick={() => { setSendMode('now'); setSchedDate(''); setSchedTime(''); setActivePreset(null); }}
+                  >
+                    <Send size={12} /> Send Now
+                  </button>
+                  <button
+                    className={`schedule-toggle-btn ${sendMode === 'schedule' ? 'active' : ''}`}
+                    onClick={() => setSendMode('schedule')}
+                  >
+                    <Calendar size={12} /> Schedule
+                  </button>
+                </div>
+              </div>
 
-              {scheduleMode && (
-                <div className="form-group">
-                  <label>Scheduled Date & Time</label>
-                  <input
-                    type="datetime-local"
-                    className="form-input"
-                    value={scheduledAt}
-                    onChange={(e) => setScheduledAt(e.target.value)}
-                    min={getMinDatetime()}
-                  />
-                  {scheduledAt && (
-                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-                      Will be sent on {formatDate(new Date(scheduledAt).toISOString())}
-                    </p>
+              {/* Schedule Panel */}
+              {isSchedule && (
+                <div className="schedule-panel">
+                  <div className="schedule-presets">
+                    {getPresets().map((p) => (
+                      <button
+                        key={p.label}
+                        className={`schedule-preset-btn ${activePreset === p.label ? 'active' : ''}`}
+                        onClick={() => applyPreset(p)}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="schedule-datetime-row">
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={schedDate}
+                      onChange={(e) => handleDateTimeChange(e.target.value, schedTime)}
+                      min={todayDateStr()}
+                    />
+                    <input
+                      type="time"
+                      className="form-input"
+                      value={schedTime}
+                      onChange={(e) => handleDateTimeChange(schedDate, e.target.value)}
+                    />
+                  </div>
+
+                  {resolvedDate && isDateValid && (
+                    <div className="schedule-preview">
+                      <Clock size={12} />
+                      Will send on {formatDate(resolvedDate.toISOString())}
+                    </div>
+                  )}
+                  {resolvedDate && !isDateValid && (
+                    <div className="schedule-preview" style={{ color: 'var(--accent)' }}>
+                      <Clock size={12} />
+                      Selected time must be in the future
+                    </div>
                   )}
                 </div>
               )}
@@ -489,20 +615,13 @@ export default function NotificationsPage() {
                   </div>
                   <div style={{ maxHeight: 180, overflowY: 'auto' }}>
                     {selectedUsers.map((user) => (
-                      <div
-                        key={user.id}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 10,
-                          padding: '8px 14px', borderBottom: '1px solid var(--border)',
-                        }}
-                      >
+                      <div key={user.id} style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '8px 14px', borderBottom: '1px solid var(--border)',
+                      }}>
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
-                            {user.name}
-                          </div>
-                          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                            {user.email}
-                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{user.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{user.email}</div>
                         </div>
                         <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0, marginRight: 8 }}>
                           {formatTimeAgo(user.last_active_at)}
@@ -525,36 +644,58 @@ export default function NotificationsPage() {
                 </div>
               )}
 
-              <button
-                className="btn btn-primary"
-                style={{ marginTop: 4 }}
-                onClick={handleSend}
-                disabled={!canSubmit}
-              >
-                {scheduleMode ? (
+              {/* Submit */}
+              <button className="btn btn-primary" style={{ marginTop: 4 }} onClick={handleSend} disabled={!canSubmit}>
+                {isSchedule ? (
                   <><Clock size={14} /> {sending ? 'Scheduling...' : 'Schedule Notification'}</>
                 ) : (
                   <><Send size={14} /> {sending ? 'Sending...' : 'Send Now'}</>
                 )}
               </button>
               {successMessage && (
-                <p style={{ fontSize: 12, color: 'var(--green)', marginTop: 4 }}>
-                  {successMessage}
-                </p>
+                <p style={{ fontSize: 12, color: 'var(--green)', marginTop: 4 }}>{successMessage}</p>
               )}
             </div>
           </div>
         </div>
       )}
 
+      {/* ─── Scheduled Tab ────────────────────────────────────────────────── */}
       {tab === 'scheduled' && (
         <div className="table-card">
           <div className="table-header"><h3>Scheduled Notifications</h3></div>
+
+          {someSelected && (
+            <div className="bulk-action-bar">
+              <span className="bulk-action-count">
+                {allRecordsSelected ? `All ${selectedIds.size}` : selectedIds.size} selected
+              </span>
+              {selectedScheduledCount > 0 && (
+                <button className="btn btn-danger btn-sm" onClick={handleBulkCancel} disabled={bulkLoading}>
+                  <X size={12} /> Cancel ({selectedScheduledCount})
+                </button>
+              )}
+              {selectedCompletedCount > 0 && (
+                <button className="btn btn-ghost btn-sm" onClick={handleBulkDelete} disabled={bulkLoading}>
+                  <Trash2 size={12} /> Delete ({selectedCompletedCount})
+                </button>
+              )}
+              <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedIds(new Set()); setAllRecordsSelected(false); }} disabled={bulkLoading}>
+                Clear
+              </button>
+            </div>
+          )}
+
+          {showSelectAllBanner && (
+            <div className="select-all-banner">
+              All {scheduledNotifications.length} items on this page are selected.{' '}
+              <button onClick={handleSelectAllRecords}>Select all {totalRecords} records</button>
+            </div>
+          )}
+
           <div className="table-wrap">
             {scheduledLoading ? (
-              <div style={{ padding: 32, textAlign: 'center' }}>
-                <div className="spinner" />
-              </div>
+              <div style={{ padding: 32, textAlign: 'center' }}><div className="spinner" /></div>
             ) : scheduledNotifications.length === 0 ? (
               <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
                 No scheduled notifications yet.
@@ -563,6 +704,14 @@ export default function NotificationsPage() {
               <table>
                 <thead>
                   <tr>
+                    <th style={{ width: 40, textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        className="bulk-checkbox"
+                        checked={allSelected}
+                        onChange={toggleSelectAll}
+                      />
+                    </th>
                     <th>Title</th>
                     <th>Body</th>
                     <th>Segment</th>
@@ -574,7 +723,15 @@ export default function NotificationsPage() {
                 </thead>
                 <tbody>
                   {scheduledNotifications.map((n) => (
-                    <tr key={n.id}>
+                    <tr key={n.id} className={selectedIds.has(n.id) ? 'row-selected' : ''}>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          className="bulk-checkbox"
+                          checked={selectedIds.has(n.id)}
+                          onChange={() => toggleSelect(n.id)}
+                        />
+                      </td>
                       <td style={{ fontWeight: 500 }}>{n.title}</td>
                       <td style={{ maxWidth: 250, fontSize: 12, color: 'var(--text-secondary)' }}>{n.body}</td>
                       <td><span className="badge badge-blue">{segmentLabel(n.segment)}</span></td>
@@ -583,11 +740,7 @@ export default function NotificationsPage() {
                       <td>{statusBadge(n.status)}</td>
                       <td>
                         {n.status === 'scheduled' && (
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => handleCancelScheduled(n.id)}
-                            title="Cancel scheduled notification"
-                          >
+                          <button className="btn btn-danger btn-sm" onClick={() => handleCancelScheduled(n.id)} title="Cancel scheduled notification">
                             <X size={12} /> Cancel
                           </button>
                         )}
@@ -600,38 +753,23 @@ export default function NotificationsPage() {
           </div>
           {!scheduledLoading && scheduledPagination.totalPages > 1 && (
             <div className="pagination" style={{ padding: '12px 16px' }}>
-              <span className="pagination-info">
-                Page {scheduledPage} of {scheduledPagination.totalPages}
-              </span>
+              <span className="pagination-info">Page {scheduledPage} of {scheduledPagination.totalPages}</span>
               <div className="pagination-controls">
-                <button
-                  className="pagination-btn"
-                  onClick={() => setScheduledPage((p) => p - 1)}
-                  disabled={scheduledPage === 1}
-                >
-                  <ChevronLeft size={14} />
-                </button>
-                <button
-                  className="pagination-btn"
-                  onClick={() => setScheduledPage((p) => p + 1)}
-                  disabled={scheduledPage === scheduledPagination.totalPages}
-                >
-                  <ChevronRight size={14} />
-                </button>
+                <button className="pagination-btn" onClick={() => setScheduledPage((p) => p - 1)} disabled={scheduledPage === 1}><ChevronLeft size={14} /></button>
+                <button className="pagination-btn" onClick={() => setScheduledPage((p) => p + 1)} disabled={scheduledPage === scheduledPagination.totalPages}><ChevronRight size={14} /></button>
               </div>
             </div>
           )}
         </div>
       )}
 
+      {/* ─── History Tab ──────────────────────────────────────────────────── */}
       {tab === 'history' && (
         <div className="table-card">
           <div className="table-header"><h3>Broadcast History</h3></div>
           <div className="table-wrap">
             {historyLoading ? (
-              <div style={{ padding: 32, textAlign: 'center' }}>
-                <div className="spinner" />
-              </div>
+              <div style={{ padding: 32, textAlign: 'center' }}><div className="spinner" /></div>
             ) : broadcasts.length === 0 ? (
               <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
                 No broadcasts sent yet.
@@ -667,37 +805,17 @@ export default function NotificationsPage() {
           </div>
           {!historyLoading && historyPagination.totalPages > 1 && (
             <div className="pagination" style={{ padding: '12px 16px' }}>
-              <span className="pagination-info">
-                Page {historyPage} of {historyPagination.totalPages}
-              </span>
+              <span className="pagination-info">Page {historyPage} of {historyPagination.totalPages}</span>
               <div className="pagination-controls">
-                <button
-                  className="pagination-btn"
-                  onClick={() => setHistoryPage((p) => p - 1)}
-                  disabled={historyPage === 1}
-                >
-                  <ChevronLeft size={14} />
-                </button>
-                <button
-                  className="pagination-btn"
-                  onClick={() => setHistoryPage((p) => p + 1)}
-                  disabled={historyPage === historyPagination.totalPages}
-                >
-                  <ChevronRight size={14} />
-                </button>
+                <button className="pagination-btn" onClick={() => setHistoryPage((p) => p - 1)} disabled={historyPage === 1}><ChevronLeft size={14} /></button>
+                <button className="pagination-btn" onClick={() => setHistoryPage((p) => p + 1)} disabled={historyPage === historyPagination.totalPages}><ChevronRight size={14} /></button>
               </div>
             </div>
           )}
         </div>
       )}
 
-      <ErrorModal
-        isOpen={!!error}
-        title={error?.title ?? 'Error'}
-        message={error?.message ?? ''}
-        onClose={() => setError(null)}
-        actionLabel="OK"
-      />
+      <ErrorModal isOpen={!!error} title={error?.title ?? 'Error'} message={error?.message ?? ''} onClose={() => setError(null)} actionLabel="OK" />
     </div>
   );
 }

@@ -734,7 +734,7 @@ export default function Dashboard() {
       <div className="page-top dashboard-header">
         <div>
           <h2>Dashboard</h2>
-          <p>Welcome back. Here's what's happening with InBlood.</p>
+          <p>Welcome back. Here's what's happening with inBlood.</p>
         </div>
         <div className="dashboard-header-controls">
           <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
