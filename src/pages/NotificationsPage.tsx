@@ -708,7 +708,7 @@ export default function NotificationsPage() {
                       <input
                         type="checkbox"
                         className="bulk-checkbox"
-                        checked={allSelected}
+                        checked={allPageSelected}
                         onChange={toggleSelectAll}
                       />
                     </th>
