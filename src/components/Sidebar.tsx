@@ -24,7 +24,7 @@ export default function Sidebar({ onLogout, pendingReports, pendingVerifications
     <aside className="sidebar">
       <div className="sidebar-logo">
         <img src="/logo.png" alt="inBlood" className="logo-img" />
-        <h1 style={{ fontFamily: "'Archivo Black', sans-serif" }}><span style={{ color: 'var(--accent)' }}>in</span>Blood</h1>
+        <h1><span style={{ color: 'var(--accent)' }}>in</span>Blood</h1>
         <span>Admin</span>
       </div>
 

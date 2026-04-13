@@ -132,15 +132,15 @@ export default function ReportsPage() {
     setAllRecordsSelected(false);
   }, [page, statusFilter, typeFilter]);
 
-  // Selectable = pending or reviewed (open reports)
+  const [selectingAll, setSelectingAll] = useState(false);
+  const allVisibleSelected = reports.length > 0 && reports.every((r) => selectedIds.has(r.id));
+  const someSelected = reports.some((r) => selectedIds.has(r.id));
   const selectableReports = reports.filter((r) => r.status === 'pending' || r.status === 'reviewed');
-  const allSelected = selectableReports.length > 0 && selectableReports.every((r) => selectedIds.has(r.id));
-  const someSelected = selectableReports.some((r) => selectedIds.has(r.id));
-  const showSelectAllBanner = allSelected && !allRecordsSelected && pagination.total > selectableReports.length;
+  const selectedActionableCount = reports.filter((r) => selectedIds.has(r.id) && (r.status === 'pending' || r.status === 'reviewed')).length;
 
   function toggleSelectAll() {
-    if (allSelected) { setSelectedIds(new Set()); setAllRecordsSelected(false); }
-    else setSelectedIds(new Set(selectableReports.map((r) => r.id)));
+    if (allVisibleSelected) { setSelectedIds(new Set()); setAllRecordsSelected(false); }
+    else { setSelectedIds(new Set(reports.map((r) => r.id))); setAllRecordsSelected(false); }
   }
 
   function toggleSelect(id: string) {
@@ -154,17 +154,20 @@ export default function ReportsPage() {
   }
 
   async function handleSelectAllRecords() {
+    setSelectingAll(true);
     try {
       const params: Parameters<typeof reportService.listReports>[0] = {
-        page: 1, limit: pagination.total, sort_by: 'created_at', sort_order: 'desc',
+        page: 1, limit: 9999, sort_by: 'created_at', sort_order: 'desc',
       };
       if (statusFilter) params.status = statusFilter as AdminReport['status'];
       if (typeFilter) params.report_type = typeFilter;
       const res = await reportService.listReports(params);
-      setSelectedIds(new Set(res.reports.filter((r) => r.status === 'pending' || r.status === 'reviewed').map((r) => r.id)));
+      setSelectedIds(new Set(res.reports.map((r) => r.id)));
       setAllRecordsSelected(true);
     } catch (err) {
       setError({ title: 'Failed to select all', message: extractErrorMessage(err) });
+    } finally {
+      setSelectingAll(false);
     }
   }
 
@@ -312,38 +315,31 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        {selectedIds.size > 0 && (
-          <div className="bulk-action-bar">
-            <span className="bulk-action-count">
-              {allRecordsSelected ? `All ${selectedIds.size}` : selectedIds.size} selected
-            </span>
-            <button className="btn btn-sm btn-ghost" onClick={() => setBulkConfirm('review')} disabled={actionLoading}>
-              Review
-            </button>
-            <button className="btn btn-sm btn-danger" onClick={() => setBulkConfirm('ban')} disabled={actionLoading}>
-              Ban Users
-            </button>
-            <button className="btn btn-sm btn-yellow" onClick={() => setBulkConfirm('delete_content')} disabled={actionLoading}>
-              Delete Content
-            </button>
-            <button className="btn btn-sm btn-green" onClick={() => setBulkConfirm('warn')} disabled={actionLoading}>
-              Warn
-            </button>
-            <button className="btn btn-sm btn-ghost" onClick={() => setBulkConfirm('dismiss')} disabled={actionLoading}>
-              Dismiss
-            </button>
-            <button className="btn btn-sm btn-ghost" onClick={() => { setSelectedIds(new Set()); setAllRecordsSelected(false); }} disabled={actionLoading}>
-              Clear
-            </button>
-          </div>
-        )}
-
-        {showSelectAllBanner && (
-          <div className="select-all-banner">
-            All {selectableReports.length} open reports on this page are selected.{' '}
-            <button onClick={handleSelectAllRecords}>Select all {pagination.total} records</button>
-          </div>
-        )}
+        <div className="bulk-action-bar">
+          <button className="btn btn-ghost btn-sm" onClick={toggleSelectAll} disabled={actionLoading}>
+            {allVisibleSelected ? 'Deselect page' : `Select visible (${reports.length})`}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={handleSelectAllRecords} disabled={actionLoading || selectingAll || allRecordsSelected}>
+            {selectingAll ? 'Loading...' : allRecordsSelected ? 'All selected' : `Select all (${pagination.total})`}
+          </button>
+          {selectedIds.size > 0 && (
+            <>
+              <span className="bulk-action-count" style={{ marginLeft: 4 }}>
+                {selectedIds.size} selected
+              </span>
+              {selectedActionableCount > 0 && (
+                <>
+                  <button className="btn btn-sm btn-ghost" onClick={() => setBulkConfirm('review')} disabled={actionLoading}>Review</button>
+                  <button className="btn btn-sm btn-danger" onClick={() => setBulkConfirm('ban')} disabled={actionLoading}>Ban</button>
+                  <button className="btn btn-sm btn-yellow" onClick={() => setBulkConfirm('delete_content')} disabled={actionLoading}>Delete Content</button>
+                  <button className="btn btn-sm btn-green" onClick={() => setBulkConfirm('warn')} disabled={actionLoading}>Warn</button>
+                  <button className="btn btn-sm btn-ghost" onClick={() => setBulkConfirm('dismiss')} disabled={actionLoading}>Dismiss</button>
+                </>
+              )}
+              <button className="btn btn-sm btn-ghost" onClick={() => { setSelectedIds(new Set()); setAllRecordsSelected(false); }} disabled={actionLoading}>Clear</button>
+            </>
+          )}
+        </div>
 
         <div className="table-wrap">
           <table>
@@ -353,10 +349,10 @@ export default function ReportsPage() {
                   <input
                     type="checkbox"
                     className="bulk-checkbox"
-                    checked={allSelected}
-                    ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                    checked={allVisibleSelected}
+                    ref={(el) => { if (el) el.indeterminate = someSelected && !allVisibleSelected; }}
                     onChange={toggleSelectAll}
-                    disabled={selectableReports.length === 0}
+                    disabled={reports.length === 0}
                   />
                 </th>
                 <th>Reporter</th>
@@ -379,18 +375,15 @@ export default function ReportsPage() {
                 </tr>
               ) : (
                 reports.map((r) => {
-                  const isSelectable = r.status === 'pending' || r.status === 'reviewed';
                   return (
                   <tr key={r.id} className={selectedIds.has(r.id) ? 'row-selected' : ''}>
                     <td style={{ textAlign: 'center' }}>
-                      {isSelectable && (
-                        <input
-                          type="checkbox"
-                          className="bulk-checkbox"
-                          checked={selectedIds.has(r.id)}
-                          onChange={() => toggleSelect(r.id)}
-                        />
-                      )}
+                      <input
+                        type="checkbox"
+                        className="bulk-checkbox"
+                        checked={selectedIds.has(r.id)}
+                        onChange={() => toggleSelect(r.id)}
+                      />
                     </td>
                     <td>
                       <div className="user-cell">

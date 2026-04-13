@@ -98,14 +98,13 @@ export default function StoriesPage() {
     setAllRecordsSelected(false);
   }, [page, showDeleted, mediaFilter]);
 
-  const selectableStories = showDeleted ? stories.filter((s) => s.is_deleted) : stories.filter((s) => !s.is_deleted);
-  const allSelected = selectableStories.length > 0 && selectableStories.every((s) => selectedIds.has(s.id));
-  const someSelected = selectableStories.some((s) => selectedIds.has(s.id));
-  const showSelectAllBanner = allSelected && !allRecordsSelected && pagination.total > selectableStories.length;
+  const [selectingAll, setSelectingAll] = useState(false);
+  const allVisibleSelected = stories.length > 0 && stories.every((s) => selectedIds.has(s.id));
+  const someSelected = stories.some((s) => selectedIds.has(s.id));
 
   function toggleSelectAll() {
-    if (allSelected) { setSelectedIds(new Set()); setAllRecordsSelected(false); }
-    else setSelectedIds(new Set(selectableStories.map((s) => s.id)));
+    if (allVisibleSelected) { setSelectedIds(new Set()); setAllRecordsSelected(false); }
+    else { setSelectedIds(new Set(stories.map((s) => s.id))); setAllRecordsSelected(false); }
   }
 
   function toggleSelect(id: string) {
@@ -119,17 +118,19 @@ export default function StoriesPage() {
   }
 
   async function handleSelectAllRecords() {
+    setSelectingAll(true);
     try {
       const params: Parameters<typeof storyService.listStories>[0] = {
-        page: 1, limit: pagination.total, sort_by: 'created_at', sort_order: 'desc', show_deleted: showDeleted,
+        page: 1, limit: 9999, sort_by: 'created_at', sort_order: 'desc', show_deleted: showDeleted,
       };
       if (mediaFilter) params.media_type = mediaFilter as 'image' | 'video';
       const res = await storyService.listStories(params);
-      const filterable = showDeleted ? res.stories.filter((s) => s.is_deleted) : res.stories.filter((s) => !s.is_deleted);
-      setSelectedIds(new Set(filterable.map((s) => s.id)));
+      setSelectedIds(new Set(res.stories.map((s) => s.id)));
       setAllRecordsSelected(true);
     } catch (err) {
       setError({ title: 'Failed to select all', message: extractErrorMessage(err) });
+    } finally {
+      setSelectingAll(false);
     }
   }
 
@@ -272,65 +273,27 @@ export default function StoriesPage() {
         </div>
       </div>
 
-      {selectableStories.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 0, margin: '12px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-              <input
-                type="checkbox"
-                className="bulk-checkbox"
-                checked={allSelected}
-                ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
-                onChange={toggleSelectAll}
-              />
-              Select all
-            </label>
-            {selectedIds.size > 0 && (
-              <div className="bulk-action-bar" style={{ marginTop: 0 }}>
-                <span className="bulk-action-count">
-                  {allRecordsSelected ? `All ${selectedIds.size}` : selectedIds.size} selected
-                </span>
-                {!showDeleted ? (
-                  <>
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => setBulkConfirm('delete')}
-                      disabled={actionLoading}
-                    >
-                      Delete Selected
-                    </button>
-                    <button
-                      className="btn btn-sm btn-green"
-                      onClick={() => setBulkConfirm('clear')}
-                      disabled={actionLoading}
-                    >
-                      Clear Selected
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    className="btn btn-sm btn-green"
-                    onClick={() => setBulkConfirm('restore')}
-                    disabled={actionLoading}
-                  >
-                    Restore Selected
-                  </button>
-                )}
-                <button
-                  className="btn btn-sm btn-ghost"
-                  onClick={() => { setSelectedIds(new Set()); setAllRecordsSelected(false); }}
-                  disabled={actionLoading}
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-          </div>
-          {showSelectAllBanner && (
-            <div className="select-all-banner" style={{ borderRadius: 'var(--radius-sm)', marginTop: 8 }}>
-              All {selectableStories.length} stories on this page are selected.{' '}
-              <button onClick={handleSelectAllRecords}>Select all {pagination.total} records</button>
-            </div>
+      {stories.length > 0 && (
+        <div className="bulk-action-bar" style={{ margin: '12px 0', borderRadius: 'var(--radius-sm)' }}>
+          <button className="btn btn-ghost btn-sm" onClick={toggleSelectAll} disabled={actionLoading}>
+            {allVisibleSelected ? 'Deselect page' : `Select visible (${stories.length})`}
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={handleSelectAllRecords} disabled={actionLoading || selectingAll || allRecordsSelected}>
+            {selectingAll ? 'Loading...' : allRecordsSelected ? 'All selected' : `Select all (${pagination.total})`}
+          </button>
+          {selectedIds.size > 0 && (
+            <>
+              <span className="bulk-action-count" style={{ marginLeft: 4 }}>{selectedIds.size} selected</span>
+              {!showDeleted ? (
+                <>
+                  <button className="btn btn-sm btn-danger" onClick={() => setBulkConfirm('delete')} disabled={actionLoading}>Delete</button>
+                  <button className="btn btn-sm btn-green" onClick={() => setBulkConfirm('clear')} disabled={actionLoading}>Clear</button>
+                </>
+              ) : (
+                <button className="btn btn-sm btn-green" onClick={() => setBulkConfirm('restore')} disabled={actionLoading}>Restore</button>
+              )}
+              <button className="btn btn-sm btn-ghost" onClick={() => { setSelectedIds(new Set()); setAllRecordsSelected(false); }} disabled={actionLoading}>Clear</button>
+            </>
           )}
         </div>
       )}

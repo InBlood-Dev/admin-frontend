@@ -302,6 +302,7 @@ export default function NotificationsPage() {
   // ─── Bulk actions ──────────────────────────────────────────────────────────
 
   const [allRecordsSelected, setAllRecordsSelected] = useState(false);
+  const [selectingAll, setSelectingAll] = useState(false);
 
   // Clear selection on page change
   useEffect(() => { setSelectedIds(new Set()); setAllRecordsSelected(false); }, [scheduledPage]);
@@ -309,7 +310,6 @@ export default function NotificationsPage() {
   const allPageSelected = scheduledNotifications.length > 0 && scheduledNotifications.every((n) => selectedIds.has(n.id));
   const someSelected = selectedIds.size > 0;
   const totalRecords = scheduledPagination.total;
-  const showSelectAllBanner = allPageSelected && !allRecordsSelected && totalRecords > scheduledNotifications.length;
 
   const selectedScheduledCount = scheduledNotifications.filter((n) => selectedIds.has(n.id) && n.status === 'scheduled').length;
   const selectedCompletedCount = scheduledNotifications.filter((n) => selectedIds.has(n.id) && ['sent', 'failed', 'cancelled'].includes(n.status)).length;
@@ -320,6 +320,7 @@ export default function NotificationsPage() {
       setAllRecordsSelected(false);
     } else {
       setSelectedIds(new Set(scheduledNotifications.map((n) => n.id)));
+      setAllRecordsSelected(false);
     }
   }
 
@@ -334,12 +335,15 @@ export default function NotificationsPage() {
   }
 
   async function handleSelectAllRecords() {
+    setSelectingAll(true);
     try {
-      const res = await notificationService.getScheduledNotifications({ page: 1, limit: totalRecords });
+      const res = await notificationService.getScheduledNotifications({ page: 1, limit: 9999 });
       setSelectedIds(new Set(res.notifications.map((n) => n.id)));
       setAllRecordsSelected(true);
     } catch (err) {
       setError({ title: 'Failed to select all', message: extractErrorMessage(err) });
+    } finally {
+      setSelectingAll(false);
     }
   }
 
@@ -665,33 +669,32 @@ export default function NotificationsPage() {
         <div className="table-card">
           <div className="table-header"><h3>Scheduled Notifications</h3></div>
 
-          {someSelected && (
-            <div className="bulk-action-bar">
-              <span className="bulk-action-count">
-                {allRecordsSelected ? `All ${selectedIds.size}` : selectedIds.size} selected
-              </span>
-              {selectedScheduledCount > 0 && (
-                <button className="btn btn-danger btn-sm" onClick={handleBulkCancel} disabled={bulkLoading}>
-                  <X size={12} /> Cancel ({selectedScheduledCount})
+          <div className="bulk-action-bar">
+            <button className="btn btn-ghost btn-sm" onClick={toggleSelectAll} disabled={bulkLoading}>
+              {allPageSelected ? 'Deselect page' : `Select visible (${scheduledNotifications.length})`}
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={handleSelectAllRecords} disabled={bulkLoading || selectingAll || allRecordsSelected}>
+              {selectingAll ? 'Loading...' : allRecordsSelected ? 'All selected' : `Select all (${totalRecords})`}
+            </button>
+            {someSelected && (
+              <>
+                <span className="bulk-action-count" style={{ marginLeft: 4 }}>{selectedIds.size} selected</span>
+                {selectedScheduledCount > 0 && (
+                  <button className="btn btn-danger btn-sm" onClick={handleBulkCancel} disabled={bulkLoading}>
+                    <X size={12} /> Cancel ({selectedScheduledCount})
+                  </button>
+                )}
+                {selectedCompletedCount > 0 && (
+                  <button className="btn btn-ghost btn-sm" onClick={handleBulkDelete} disabled={bulkLoading}>
+                    <Trash2 size={12} /> Delete ({selectedCompletedCount})
+                  </button>
+                )}
+                <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedIds(new Set()); setAllRecordsSelected(false); }} disabled={bulkLoading}>
+                  Clear
                 </button>
-              )}
-              {selectedCompletedCount > 0 && (
-                <button className="btn btn-ghost btn-sm" onClick={handleBulkDelete} disabled={bulkLoading}>
-                  <Trash2 size={12} /> Delete ({selectedCompletedCount})
-                </button>
-              )}
-              <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedIds(new Set()); setAllRecordsSelected(false); }} disabled={bulkLoading}>
-                Clear
-              </button>
-            </div>
-          )}
-
-          {showSelectAllBanner && (
-            <div className="select-all-banner">
-              All {scheduledNotifications.length} items on this page are selected.{' '}
-              <button onClick={handleSelectAllRecords}>Select all {totalRecords} records</button>
-            </div>
-          )}
+              </>
+            )}
+          </div>
 
           <div className="table-wrap">
             {scheduledLoading ? (
