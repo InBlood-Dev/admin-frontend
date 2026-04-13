@@ -96,7 +96,11 @@
   letter-spacing: -0.5px;
 }
 
-.sidebar-logo span {
+.sidebar-logo h1 span {
+  text-transform: none;
+}
+
+.sidebar-logo > span {
   font-size: 10px;
   color: var(--text-muted);
   text-transform: uppercase;
