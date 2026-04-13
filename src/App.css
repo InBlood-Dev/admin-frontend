@@ -1656,6 +1656,11 @@
   color: var(--text-secondary);
 }
 
+.badge-gray {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-muted);
+}
+
 /* Status dot */
 .status-dot {
   display: inline-block;

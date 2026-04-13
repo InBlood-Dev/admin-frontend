@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Send, Bell, Clock, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Send, Bell, Clock, ChevronLeft, ChevronRight, X, Search, UserPlus } from 'lucide-react';
 import notificationService from '../services/notification.service';
 import type {
   BroadcastItem,
   PaginatedBroadcastsResponse,
   ScheduledNotificationItem,
   PaginatedScheduledResponse,
+  UserSearchResult,
 } from '../services/notification.service';
 import ErrorModal from '../components/ErrorModal';
 
@@ -23,9 +24,23 @@ const SEGMENTS = [
   { value: 'premium', label: 'Premium Only' },
   { value: 'inactive', label: 'Inactive Users' },
   { value: 'new_users', label: 'New Users (This Week)' },
+  { value: 'specific_users', label: 'Specific Users' },
 ] as const;
 
 const PAGE_LIMIT = 20;
+
+function formatTimeAgo(dateStr: string | null): string {
+  if (!dateStr) return 'Never';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
 export default function NotificationsPage() {
   const [tab, setTab] = useState<'send' | 'history' | 'scheduled'>('send');
@@ -39,6 +54,15 @@ export default function NotificationsPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [scheduleMode, setScheduleMode] = useState(false);
   const [scheduledAt, setScheduledAt] = useState('');
+
+  // Specific users
+  const [selectedUsers, setSelectedUsers] = useState<UserSearchResult[]>([]);
+  const [userSearch, setUserSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // History
   const [broadcasts, setBroadcasts] = useState<BroadcastItem[]>([]);
@@ -54,15 +78,62 @@ export default function NotificationsPage() {
 
   const [error, setError] = useState<{ title: string; message: string } | null>(null);
 
+  const isSpecificUsers = segment === 'specific_users';
+
   // Fetch segment count when segment changes
   useEffect(() => {
+    if (isSpecificUsers) {
+      setSegmentCount(selectedUsers.length);
+      return;
+    }
     let cancelled = false;
     setSegmentCount(null);
     notificationService.getSegmentCount(segment).then((res) => {
       if (!cancelled) setSegmentCount(res.count);
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [segment]);
+  }, [segment, isSpecificUsers, selectedUsers.length]);
+
+  // Debounced user search (min 3 chars)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (userSearch.trim().length < 3) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const results = await notificationService.searchUsers(userSearch.trim());
+        // Filter out already-selected users
+        const filtered = results.filter((u) => !selectedUsers.some((s) => s.id === u.id));
+        setSearchResults(filtered);
+        setShowDropdown(true);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 400);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [userSearch, selectedUsers]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Fetch history
   const fetchHistory = useCallback(async (p: number) => {
@@ -100,24 +171,37 @@ export default function NotificationsPage() {
     if (tab === 'scheduled') fetchScheduled(scheduledPage);
   }, [tab, scheduledPage, fetchScheduled]);
 
+  function addUser(user: UserSearchResult) {
+    setSelectedUsers((prev) => [...prev, user]);
+    setUserSearch('');
+    setSearchResults([]);
+    setShowDropdown(false);
+  }
+
+  function removeUser(userId: string) {
+    setSelectedUsers((prev) => prev.filter((u) => u.id !== userId));
+  }
+
   async function handleSend() {
     if (!title.trim() || !body.trim()) return;
+    if (isSpecificUsers && selectedUsers.length === 0) return;
+
+    const payload = {
+      title: title.trim(),
+      body: body.trim(),
+      segment,
+      ...(isSpecificUsers && { user_ids: selectedUsers.map((u) => u.id) }),
+    };
 
     if (scheduleMode) {
       if (!scheduledAt) return;
       setSending(true);
       try {
         await notificationService.scheduleNotification({
-          title: title.trim(),
-          body: body.trim(),
-          segment,
+          ...payload,
           scheduled_at: new Date(scheduledAt).toISOString(),
         });
-        setTitle('');
-        setBody('');
-        setSegment('all');
-        setScheduledAt('');
-        setScheduleMode(false);
+        resetForm();
         setSuccessMessage('Notification scheduled successfully!');
         setTimeout(() => setSuccessMessage(''), 3000);
       } catch (err) {
@@ -130,10 +214,8 @@ export default function NotificationsPage() {
 
     setSending(true);
     try {
-      await notificationService.sendBroadcast({ title: title.trim(), body: body.trim(), segment });
-      setTitle('');
-      setBody('');
-      setSegment('all');
+      await notificationService.sendBroadcast(payload);
+      resetForm();
       setSuccessMessage('Notification sent successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
@@ -141,6 +223,16 @@ export default function NotificationsPage() {
     } finally {
       setSending(false);
     }
+  }
+
+  function resetForm() {
+    setTitle('');
+    setBody('');
+    setSegment('all');
+    setScheduledAt('');
+    setScheduleMode(false);
+    setSelectedUsers([]);
+    setUserSearch('');
   }
 
   async function handleCancelScheduled(id: string) {
@@ -171,7 +263,6 @@ export default function NotificationsPage() {
   };
 
   // Minimum datetime for the scheduler (2 minutes from now, in local time)
-  // Note: datetime-local inputs expect local time, not UTC — toISOString() would be wrong here
   const getMinDatetime = () => {
     const d = new Date(Date.now() + 2 * 60 * 1000);
     const year = d.getFullYear();
@@ -181,6 +272,10 @@ export default function NotificationsPage() {
     const minutes = String(d.getMinutes()).padStart(2, '0');
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
+
+  const canSubmit = title.trim() && body.trim() && !sending
+    && (!isSpecificUsers || selectedUsers.length > 0)
+    && (!scheduleMode || scheduledAt);
 
   return (
     <div className="animate-in">
@@ -214,20 +309,105 @@ export default function NotificationsPage() {
                   className="filter-select"
                   style={{ width: '100%' }}
                   value={segment}
-                  onChange={(e) => setSegment(e.target.value)}
+                  onChange={(e) => {
+                    setSegment(e.target.value);
+                    if (e.target.value !== 'specific_users') {
+                      setSelectedUsers([]);
+                      setUserSearch('');
+                    }
+                  }}
                 >
                   {SEGMENTS.map((s) => (
                     <option key={s.value} value={s.value}>
-                      {s.label}{segmentCount !== null && segment === s.value ? ` (${segmentCount.toLocaleString()})` : ''}
+                      {s.label}{segmentCount !== null && segment === s.value && !isSpecificUsers ? ` (${segmentCount.toLocaleString()})` : ''}
                     </option>
                   ))}
                 </select>
-                {segmentCount !== null && (
+                {!isSpecificUsers && segmentCount !== null && (
                   <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
                     {segmentCount.toLocaleString()} users in this segment
                   </p>
                 )}
               </div>
+
+              {/* Specific Users Search */}
+              {isSpecificUsers && (
+                <div className="form-group">
+                  <label>Search Users</label>
+                  <div ref={dropdownRef} style={{ position: 'relative' }}>
+                    <div style={{ position: 'relative' }}>
+                      <Search size={14} style={{
+                        position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                        color: 'var(--text-muted)', pointerEvents: 'none',
+                      }} />
+                      <input
+                        className="form-input"
+                        style={{ paddingLeft: 34 }}
+                        placeholder="Search by name or email (min 3 chars)..."
+                        value={userSearch}
+                        onChange={(e) => setUserSearch(e.target.value)}
+                      />
+                      {searching && (
+                        <div style={{
+                          position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                        }}>
+                          <div className="spinner" style={{ width: 14, height: 14 }} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Search results dropdown */}
+                    {showDropdown && searchResults.length > 0 && (
+                      <div style={{
+                        position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                        marginTop: 4, background: 'var(--bg-card)', border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-sm)', maxHeight: 200, overflowY: 'auto',
+                        boxShadow: 'var(--shadow-lg)',
+                      }}>
+                        {searchResults.map((user) => (
+                          <button
+                            key={user.id}
+                            onClick={() => addUser(user)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                              padding: '10px 14px', background: 'none', textAlign: 'left',
+                              cursor: 'pointer', transition: 'background var(--transition)',
+                              borderBottom: '1px solid var(--border)',
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-card-hover)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                          >
+                            <UserPlus size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+                                {user.name}
+                              </div>
+                              <div style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {user.email}
+                              </div>
+                            </div>
+                            <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>
+                              {formatTimeAgo(user.last_active_at)}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {showDropdown && searchResults.length === 0 && !searching && userSearch.trim().length >= 3 && (
+                      <div style={{
+                        position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                        marginTop: 4, padding: '12px 14px', background: 'var(--bg-card)',
+                        border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                        fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center',
+                        boxShadow: 'var(--shadow-lg)',
+                      }}>
+                        No users found
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="form-group">
                 <label>Title</label>
                 <input
@@ -249,7 +429,13 @@ export default function NotificationsPage() {
                 />
               </div>
 
-              <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label
+                htmlFor="schedule-toggle"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  cursor: 'pointer', userSelect: 'none',
+                }}
+              >
                 <input
                   type="checkbox"
                   id="schedule-toggle"
@@ -258,12 +444,10 @@ export default function NotificationsPage() {
                     setScheduleMode(e.target.checked);
                     if (!e.target.checked) setScheduledAt('');
                   }}
-                  style={{ width: 16, height: 16 }}
+                  style={{ width: 16, height: 16, accentColor: 'var(--accent)' }}
                 />
-                <label htmlFor="schedule-toggle" style={{ margin: 0, cursor: 'pointer' }}>
-                  Schedule for later
-                </label>
-              </div>
+                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Schedule for later</span>
+              </label>
 
               {scheduleMode && (
                 <div className="form-group">
@@ -283,10 +467,69 @@ export default function NotificationsPage() {
                 </div>
               )}
 
+              {/* Selected users list */}
+              {isSpecificUsers && selectedUsers.length > 0 && (
+                <div style={{
+                  background: 'var(--bg-input)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)', overflow: 'hidden',
+                }}>
+                  <div style={{
+                    padding: '8px 14px', borderBottom: '1px solid var(--border)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  }}>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>
+                      Selected Users ({selectedUsers.length})
+                    </span>
+                    <button
+                      onClick={() => setSelectedUsers([])}
+                      style={{ fontSize: 11, color: 'var(--accent)', cursor: 'pointer', background: 'none' }}
+                    >
+                      Clear all
+                    </button>
+                  </div>
+                  <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+                    {selectedUsers.map((user) => (
+                      <div
+                        key={user.id}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '8px 14px', borderBottom: '1px solid var(--border)',
+                        }}
+                      >
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+                            {user.name}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                            {user.email}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0, marginRight: 8 }}>
+                          {formatTimeAgo(user.last_active_at)}
+                        </span>
+                        <button
+                          onClick={() => removeUser(user.id)}
+                          title="Remove user"
+                          style={{
+                            background: 'var(--accent-soft)', borderRadius: 4,
+                            padding: 4, cursor: 'pointer', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                            color: 'var(--accent)', flexShrink: 0,
+                          }}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <button
                 className="btn btn-primary"
+                style={{ marginTop: 4 }}
                 onClick={handleSend}
-                disabled={!title.trim() || !body.trim() || sending || (scheduleMode && !scheduledAt)}
+                disabled={!canSubmit}
               >
                 {scheduleMode ? (
                   <><Clock size={14} /> {sending ? 'Scheduling...' : 'Schedule Notification'}</>
@@ -341,8 +584,7 @@ export default function NotificationsPage() {
                       <td>
                         {n.status === 'scheduled' && (
                           <button
-                            className="btn btn-danger"
-                            style={{ padding: '4px 10px', fontSize: 12 }}
+                            className="btn btn-danger btn-sm"
                             onClick={() => handleCancelScheduled(n.id)}
                             title="Cancel scheduled notification"
                           >
