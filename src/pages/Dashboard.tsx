@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Users, Heart, MessageSquare, Crown, ShieldAlert, BadgeCheck, IndianRupee,
   UserPlus, Clapperboard, TrendingUp, MapPin, ChevronDown, ChevronLeft, ChevronRight,
@@ -13,6 +14,7 @@ import {
 } from 'recharts';
 import dashboardService from '../services/dashboard.service';
 import ErrorModal from '../components/ErrorModal';
+import ExportModal from '../components/ExportModal';
 import type {
   DashboardStats, UserGrowthPoint, SignupsPoint, RevenuePoint, RevenueByPlan,
   GenderPoint, AgeRangePoint, LocationDistribution, OrientationPoint, DemographicsSummary,
@@ -350,7 +352,9 @@ function DateRangePicker({ value, onChange }: {
   const [pickTo, setPickTo] = useState<Date | null>(value.to ? new Date(value.to) : null);
   const [hovered, setHovered] = useState<Date | null>(null);
   const [selectingEnd, setSelectingEnd] = useState(false);
+  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({});
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   // Two calendar months: current view
   const now = new Date();
@@ -362,7 +366,14 @@ function DateRangePicker({ value, onChange }: {
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      const popupEl = document.getElementById('drp-portal-popup');
+      if (
+        ref.current && !ref.current.contains(target) &&
+        (!popupEl || !popupEl.contains(target))
+      ) {
+        setOpen(false);
+      }
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -425,9 +436,73 @@ function DateRangePicker({ value, onChange }: {
     ? `${formatDateShort(new Date(value.from!))} — ${formatDateShort(new Date(value.to!))}`
     : 'All Time';
 
+  function openPicker() {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const popupWidth = 650;
+      let left = rect.right - popupWidth;
+      if (left < 8) left = 8;
+      setPopupStyle({
+        position: 'fixed',
+        top: rect.bottom + 6,
+        left,
+        zIndex: 9999,
+      });
+    }
+    setOpen(!open);
+  }
+
+  const popup = open && (
+    <div id="drp-portal-popup" className="drp-popup" style={popupStyle}>
+      {/* Presets sidebar */}
+      <div className="drp-presets">
+        <div className="drp-presets-title">Quick Select</div>
+        {presets.map(p => (
+          <button key={p.label} className="drp-preset-btn" onClick={() => applyPreset(p)}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Calendar area */}
+      <div className="drp-calendars">
+        <div className="drp-nav">
+          <button onClick={prevMonth}><ChevronLeft size={16} /></button>
+          <button onClick={nextMonth}><ChevronRight size={16} /></button>
+        </div>
+
+        <div className="drp-months">
+          <CalendarMonth
+            year={viewYear} month={viewMonth}
+            from={pickFrom} to={pickTo} hovered={selectingEnd ? hovered : null}
+            onSelect={handleSelect} onHover={setHovered}
+          />
+          <CalendarMonth
+            year={secondYear} month={secondMonth}
+            from={pickFrom} to={pickTo} hovered={selectingEnd ? hovered : null}
+            onSelect={handleSelect} onHover={setHovered}
+          />
+        </div>
+
+        {/* Footer */}
+        <div className="drp-footer">
+          <div className="drp-selection">
+            {pickFrom ? formatDateShort(pickFrom) : '—'}
+            <span style={{ margin: '0 6px', color: 'var(--text-muted)' }}>to</span>
+            {pickTo ? formatDateShort(pickTo) : '—'}
+          </div>
+          <div className="drp-actions">
+            <button className="drp-btn-cancel" onClick={() => setOpen(false)}>Cancel</button>
+            <button className="drp-btn-apply" onClick={apply} disabled={!pickFrom}>Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="date-range-picker" ref={ref}>
-      <button className="drp-trigger" onClick={() => setOpen(!open)}>
+      <button className="drp-trigger" ref={triggerRef} onClick={openPicker}>
         <Calendar size={14} />
         <span>{triggerLabel}</span>
         {hasRange && (
@@ -438,53 +513,7 @@ function DateRangePicker({ value, onChange }: {
         <ChevronDown size={12} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
       </button>
 
-      {open && (
-        <div className="drp-popup">
-          {/* Presets sidebar */}
-          <div className="drp-presets">
-            <div className="drp-presets-title">Quick Select</div>
-            {presets.map(p => (
-              <button key={p.label} className="drp-preset-btn" onClick={() => applyPreset(p)}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Calendar area */}
-          <div className="drp-calendars">
-            <div className="drp-nav">
-              <button onClick={prevMonth}><ChevronLeft size={16} /></button>
-              <button onClick={nextMonth}><ChevronRight size={16} /></button>
-            </div>
-
-            <div className="drp-months">
-              <CalendarMonth
-                year={viewYear} month={viewMonth}
-                from={pickFrom} to={pickTo} hovered={selectingEnd ? hovered : null}
-                onSelect={handleSelect} onHover={setHovered}
-              />
-              <CalendarMonth
-                year={secondYear} month={secondMonth}
-                from={pickFrom} to={pickTo} hovered={selectingEnd ? hovered : null}
-                onSelect={handleSelect} onHover={setHovered}
-              />
-            </div>
-
-            {/* Footer */}
-            <div className="drp-footer">
-              <div className="drp-selection">
-                {pickFrom ? formatDateShort(pickFrom) : '—'}
-                <span style={{ margin: '0 6px', color: 'var(--text-muted)' }}>to</span>
-                {pickTo ? formatDateShort(pickTo) : '—'}
-              </div>
-              <div className="drp-actions">
-                <button className="drp-btn-cancel" onClick={() => setOpen(false)}>Cancel</button>
-                <button className="drp-btn-apply" onClick={apply} disabled={!pickFrom}>Apply</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {createPortal(popup, document.body)}
     </div>
   );
 }
@@ -537,6 +566,8 @@ export default function Dashboard() {
   const [searchTrends, setSearchTrends] = useState<SearchDailyPoint[]>([]);
   const [uptimeStats, setUptimeStats] = useState<UptimeStats | null>(null);
   const [uptimeTimeline, setUptimeTimeline] = useState<UptimePoint[]>([]);
+
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [demographicsLoading, setDemographicsLoading] = useState(false);
@@ -737,6 +768,14 @@ export default function Dashboard() {
           <p>Welcome back. Here's what's happening with inBlood.</p>
         </div>
         <div className="dashboard-header-controls">
+          <button
+            className="btn btn-ghost export-trigger-btn"
+            onClick={() => setExportModalOpen(true)}
+            title="Export dashboard data"
+          >
+            <Download size={14} />
+            <span>Export</span>
+          </button>
           <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
           <div className="dashboard-tabs">
             {sections.map(s => (
@@ -1476,6 +1515,7 @@ export default function Dashboard() {
       )}
 
       <ErrorModal isOpen={!!error} title={error?.title ?? 'Error'} message={error?.message ?? ''} onClose={() => setError(null)} actionLabel="OK" />
+      <ExportModal isOpen={exportModalOpen} onClose={() => setExportModalOpen(false)} currentDateRange={dateRange} />
     </div>
   );
 }

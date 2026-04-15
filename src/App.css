@@ -1021,7 +1021,6 @@
 
 .date-range-picker {
   position: relative;
-  z-index: 200;
 }
 
 .drp-trigger {
@@ -1062,15 +1061,11 @@
 }
 
 .drp-popup {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
   display: flex;
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
-  z-index: 2000;
   animation: fadeIn 0.2s ease-out both;
   overflow: hidden;
 }
@@ -2910,4 +2905,284 @@ tr.row-selected {
 
 .btn-green:hover {
   background: rgba(76, 175, 80, 0.22);
+}
+
+/* ── Export trigger button ───────────────────────────────── */
+.export-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ── Export modal ────────────────────────────────────────── */
+.export-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.export-section {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.export-section:last-child {
+  border-bottom: none;
+}
+
+.export-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.export-select-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.export-select-links button {
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.export-select-links button:hover {
+  opacity: 0.75;
+}
+
+.export-link-btn {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.export-link-btn:hover {
+  opacity: 0.75;
+}
+
+.export-checkbox-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.export-checkbox-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.export-checkbox-item:hover {
+  border-color: var(--border-light);
+  background: var(--bg-card-hover);
+}
+
+.export-checkbox-item.checked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.export-checkbox-item input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.export-checkbox-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.export-checkbox-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.export-checkbox-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.export-date-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.export-date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.export-date-field label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.export-date-input {
+  padding: 7px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color var(--transition);
+  width: 100%;
+}
+
+.export-date-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.export-date-sep {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-top: 18px;
+}
+
+.export-clear-date {
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-top: 18px;
+  white-space: nowrap;
+  transition: color var(--transition);
+}
+
+.export-clear-date:hover {
+  color: var(--text-primary);
+}
+
+.export-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  font-style: italic;
+}
+
+.export-filters-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.export-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 130px;
+}
+
+.export-filter-field label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.export-select {
+  padding: 7px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color var(--transition);
+  width: 100%;
+}
+
+.export-select:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.export-age-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.export-number-input {
+  flex: 1;
+  padding: 7px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: border-color var(--transition);
+  min-width: 0;
+}
+
+.export-number-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.export-error {
+  padding: 10px 14px;
+  background: var(--red-soft);
+  border: 1px solid rgba(255, 77, 77, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--red);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.export-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 16px;
+  margin-top: 4px;
+}
+
+.export-btn {
+  min-width: 140px;
+  justify-content: center;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.export-spinner {
+  animation: spin 0.8s linear infinite;
 }
