@@ -106,7 +106,7 @@ export default function VerificationsPage() {
   const [verifications, setVerifications] = useState<AdminVerification[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: PAGE_LIMIT, total: 0, totalPages: 1 });
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('pending');
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [confirmApprove, setConfirmApprove] = useState<AdminVerification | null>(null);
@@ -146,11 +146,6 @@ export default function VerificationsPage() {
   useEffect(() => {
     fetchVerifications(page, statusFilter);
   }, [page, statusFilter, fetchVerifications]);
-
-  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setStatusFilter(e.target.value);
-    setPage(1);
-  };
 
   function updateVerification(userId: string, patch: Partial<AdminVerification>) {
     setVerifications((prev) =>
@@ -197,7 +192,6 @@ export default function VerificationsPage() {
   // ─── Selection helpers ───────────────────────────────────────────────
   const [allRecordsSelected, setAllRecordsSelected] = useState(false);
   const [selectingAll, setSelectingAll] = useState(false);
-  const pendingVerifications = verifications.filter((v) => v.status === 'pending');
   const allVisibleSelected = verifications.length > 0 && verifications.every((v) => selectedIds.has(v.user_id));
   const someSelected = verifications.some((v) => selectedIds.has(v.user_id));
   const selectedPendingCount = verifications.filter((v) => selectedIds.has(v.user_id) && v.status === 'pending').length;
@@ -326,8 +320,8 @@ export default function VerificationsPage() {
           <p>
             {loading
               ? 'Loading…'
-              : statusFilter === '' || statusFilter === 'pending'
-              ? `${pagination.total} ${statusFilter === 'pending' ? 'pending' : 'total'} verification requests`
+              : statusFilter === ''
+              ? `${pagination.total} total verification requests`
               : `${pagination.total} ${statusFilter} verification requests`}
           </p>
         </div>
@@ -335,19 +329,22 @@ export default function VerificationsPage() {
 
       <div className="table-card">
         <div className="table-header">
-          <h3>
-            Verification Requests
-            {!loading && !statusFilter && pendingCount > 0 && (
-              <span className="badge badge-yellow" style={{ marginLeft: 8 }}>{pendingCount} pending</span>
-            )}
-          </h3>
+          <h3>Verification Requests</h3>
           <div className="table-header-actions">
-            <select className="filter-select" value={statusFilter} onChange={handleFilterChange}>
-              <option value="">All Requests</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
+            {(['pending', 'approved', 'rejected', ''] as const).map((s) => {
+              const label = s === '' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1);
+              const isActive = statusFilter === s;
+              return (
+                <button
+                  key={s}
+                  className={`btn btn-sm${isActive ? ' btn-primary' : ' btn-ghost'}`}
+                  onClick={() => { setStatusFilter(s); setPage(1); }}
+                  style={{ minWidth: 76 }}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
