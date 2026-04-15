@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import Modal from './Modal';
+import DateRangePicker from './DateRangePicker';
 import api from '../services/api';
 import type { DateRange } from '../types';
 
@@ -48,8 +49,7 @@ export default function ExportModal({ isOpen, onClose, currentDateRange }: Props
   const [selectedSections, setSelectedSections] = useState<Set<string>>(
     new Set(SECTIONS.map(s => s.key))
   );
-  const [from, setFrom] = useState(currentDateRange.from ?? '');
-  const [to, setTo]     = useState(currentDateRange.to ?? '');
+  const [exportRange, setExportRange] = useState<DateRange>(currentDateRange);
   const [gender, setGender]     = useState('all');
   const [userType, setUserType] = useState('all');
   const [ageMin, setAgeMin]     = useState('');
@@ -60,8 +60,7 @@ export default function ExportModal({ isOpen, onClose, currentDateRange }: Props
   // Sync date range from dashboard whenever the modal opens, and clear stale errors.
   useEffect(() => {
     if (isOpen) {
-      setFrom(currentDateRange.from ?? '');
-      setTo(currentDateRange.to ?? '');
+      setExportRange(currentDateRange);
       setExportError(null);
     }
   }, [isOpen, currentDateRange.from, currentDateRange.to]);
@@ -79,8 +78,7 @@ export default function ExportModal({ isOpen, onClose, currentDateRange }: Props
   function selectNone() { setSelectedSections(new Set()); }
 
   function useDashboardRange() {
-    setFrom(currentDateRange.from ?? '');
-    setTo(currentDateRange.to ?? '');
+    setExportRange({ from: currentDateRange.from, to: currentDateRange.to });
   }
 
   async function handleExport() {
@@ -94,12 +92,12 @@ export default function ExportModal({ isOpen, onClose, currentDateRange }: Props
     try {
       const params = new URLSearchParams();
       params.set('sections', [...selectedSections].join(','));
-      if (from)           params.set('from', from);
-      if (to)             params.set('to', to);
+      if (exportRange.from)   params.set('from', exportRange.from);
+      if (exportRange.to)     params.set('to', exportRange.to);
       if (gender !== 'all')   params.set('gender', gender);
       if (userType !== 'all') params.set('user_type', userType);
-      if (ageMin)         params.set('age_min', ageMin);
-      if (ageMax)         params.set('age_max', ageMax);
+      if (ageMin)             params.set('age_min', ageMin);
+      if (ageMax)             params.set('age_max', ageMax);
 
       const resp = await api.get(`/admin/export?${params.toString()}`, {
         responseType: 'blob',
@@ -177,35 +175,8 @@ export default function ExportModal({ isOpen, onClose, currentDateRange }: Props
               Use dashboard range
             </button>
           </div>
-          <div className="export-date-row">
-            <div className="export-date-field">
-              <label>From</label>
-              <input
-                type="date"
-                value={from}
-                onChange={e => setFrom(e.target.value)}
-                className="export-date-input"
-                max={to || undefined}
-              />
-            </div>
-            <div className="export-date-sep">→</div>
-            <div className="export-date-field">
-              <label>To</label>
-              <input
-                type="date"
-                value={to}
-                onChange={e => setTo(e.target.value)}
-                className="export-date-input"
-                min={from || undefined}
-              />
-            </div>
-            {(from || to) && (
-              <button className="export-clear-date" onClick={() => { setFrom(''); setTo(''); }}>
-                Clear
-              </button>
-            )}
-          </div>
-          {!from && !to && (
+          <DateRangePicker value={exportRange} onChange={setExportRange} />
+          {!exportRange.from && !exportRange.to && (
             <p className="export-hint">No date range selected — all-time data will be exported.</p>
           )}
         </div>
