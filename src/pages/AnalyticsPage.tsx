@@ -14,6 +14,8 @@ import analyticsService, {
   FunnelStep
 } from '../services/analytics.service';
 import ErrorModal from '../components/ErrorModal';
+import DateRangePicker from '../components/DateRangePicker';
+import type { DateRange } from '../types';
 
 const PAGE_LIMIT = 50;
 const PLATFORM_OPTIONS = ['', 'ios', 'android', 'web'] as const;
@@ -184,12 +186,11 @@ export default function AnalyticsPage() {
       <div className="table-card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 12, padding: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
-            <label style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>From</label>
-            <input type="date" className="form-input" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>To</label>
-            <input type="date" className="form-input" value={to} onChange={(e) => setTo(e.target.value)} />
+            <label style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Date Range</label>
+            <DateRangePicker
+              value={{ from: from || null, to: to || null }}
+              onChange={(r: DateRange) => { setFrom(r.from ?? ''); setTo(r.to ?? ''); }}
+            />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Platform</label>
