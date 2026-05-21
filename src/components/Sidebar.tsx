@@ -11,15 +11,18 @@ import {
   Clapperboard,
   Bell,
   FileText,
+  Trash2,
+  Activity,
 } from 'lucide-react';
 
 interface Props {
   onLogout: () => void;
   pendingReports: number;
   pendingVerifications: number;
+  pendingDeletions: number;
 }
 
-export default function Sidebar({ onLogout, pendingReports, pendingVerifications }: Props) {
+export default function Sidebar({ onLogout, pendingReports, pendingVerifications, pendingDeletions }: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -32,6 +35,9 @@ export default function Sidebar({ onLogout, pendingReports, pendingVerifications
         <div className="sidebar-section">Overview</div>
         <NavLink to="/" end>
           <LayoutDashboard /> Dashboard
+        </NavLink>
+        <NavLink to="/analytics">
+          <Activity /> Analytics
         </NavLink>
 
         <div className="sidebar-section">Manage</div>
@@ -53,6 +59,10 @@ export default function Sidebar({ onLogout, pendingReports, pendingVerifications
         <NavLink to="/verifications">
           <BadgeCheck /> Verifications
           {pendingVerifications > 0 && <span className="sidebar-badge">{pendingVerifications}</span>}
+        </NavLink>
+        <NavLink to="/account-deletions">
+          <Trash2 /> Account Deletions
+          {pendingDeletions > 0 && <span className="sidebar-badge">{pendingDeletions}</span>}
         </NavLink>
 
         <div className="sidebar-section">Revenue</div>

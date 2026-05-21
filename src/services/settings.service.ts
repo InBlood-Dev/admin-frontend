@@ -9,6 +9,10 @@ export interface AppSettings {
   daily_super_like_limit: number;
   story_expiry_hours: number;
   max_photos: number;
+  premium_whatsapp_group_url: string;
+  paywall_enabled: boolean;
+  paywall_browsing_threshold: number;
+  paywall_chatting_threshold: number;
   updated_at: string | null;
 }
 

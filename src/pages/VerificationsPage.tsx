@@ -83,6 +83,62 @@ function PhotoThumb({
   );
 }
 
+function VideoThumb({
+  thumbnailUrl,
+  videoUrl,
+  onClick,
+}: {
+  thumbnailUrl: string | null;
+  videoUrl: string | null;
+  onClick?: () => void;
+}) {
+  if (!videoUrl) {
+    return <PhotoThumb url={null} label="Video" />;
+  }
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        position: 'relative',
+        width: 48,
+        height: 48,
+        borderRadius: 6,
+        overflow: 'hidden',
+        cursor: onClick ? 'pointer' : 'default',
+        border: '1px solid var(--border)',
+        background: '#000',
+      }}
+    >
+      {thumbnailUrl ? (
+        <img
+          src={thumbnailUrl}
+          alt="Video"
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = 'none';
+          }}
+        />
+      ) : null}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#fff',
+          fontSize: 18,
+          textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+          pointerEvents: 'none',
+        }}
+        aria-label="Play video"
+      >
+        ▶
+      </div>
+    </div>
+  );
+}
+
 function SkeletonRows() {
   return (
     <>
@@ -113,6 +169,7 @@ export default function VerificationsPage() {
   const [rejectTarget, setRejectTarget] = useState<AdminVerification | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightboxKind, setLightboxKind] = useState<'image' | 'video'>('image');
   const [error, setError] = useState<{ title: string; message: string } | null>(null);
 
   // Bulk selection state
@@ -393,7 +450,7 @@ export default function VerificationsPage() {
                 </th>
                 <th>User</th>
                 <th>Email</th>
-                <th>Selfie</th>
+                <th>Media</th>
                 <th>Profile Photo</th>
                 <th>Submitted</th>
                 <th>Status</th>
@@ -430,17 +487,46 @@ export default function VerificationsPage() {
                       {v.user_email ?? '—'}
                     </td>
                     <td>
-                      <PhotoThumb
-                        url={v.selfie_url}
-                        label="Selfie"
-                        onClick={v.selfie_url ? () => setLightboxUrl(v.selfie_url) : undefined}
-                      />
+                      {v.media_type === 'video' ? (
+                        <VideoThumb
+                          thumbnailUrl={v.video_thumbnail_url}
+                          videoUrl={v.video_url}
+                          onClick={
+                            v.video_url
+                              ? () => {
+                                  setLightboxUrl(v.video_url);
+                                  setLightboxKind('video');
+                                }
+                              : undefined
+                          }
+                        />
+                      ) : (
+                        <PhotoThumb
+                          url={v.selfie_url}
+                          label="Selfie"
+                          onClick={
+                            v.selfie_url
+                              ? () => {
+                                  setLightboxUrl(v.selfie_url);
+                                  setLightboxKind('image');
+                                }
+                              : undefined
+                          }
+                        />
+                      )}
                     </td>
                     <td>
                       <PhotoThumb
                         url={v.primary_photo_url}
                         label="Photo"
-                        onClick={v.primary_photo_url ? () => setLightboxUrl(v.primary_photo_url) : undefined}
+                        onClick={
+                          v.primary_photo_url
+                            ? () => {
+                                setLightboxUrl(v.primary_photo_url);
+                                setLightboxKind('image');
+                              }
+                            : undefined
+                        }
                       />
                     </td>
                     <td style={{ whiteSpace: 'nowrap' }}>{formatDate(v.created_at)}</td>
@@ -663,12 +749,24 @@ export default function VerificationsPage() {
       {/* Lightbox */}
       {lightboxUrl && (
         <div className="lightbox-overlay" onClick={() => setLightboxUrl(null)}>
-          <img
-            className="lightbox-img"
-            src={lightboxUrl}
-            alt="Full size"
-            onClick={(e) => e.stopPropagation()}
-          />
+          {lightboxKind === 'video' ? (
+            <video
+              className="lightbox-img"
+              src={lightboxUrl}
+              controls
+              autoPlay
+              playsInline
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: '90vw', maxHeight: '90vh', background: '#000' }}
+            />
+          ) : (
+            <img
+              className="lightbox-img"
+              src={lightboxUrl}
+              alt="Full size"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
         </div>
       )}
 

@@ -49,6 +49,10 @@ export default function SettingsPage() {
   const [storyExpiry, setStoryExpiry] = useState('24');
   const [maxPhotos, setMaxPhotos] = useState('6');
   const [minAppVersion, setMinAppVersion] = useState('1.0.0');
+  const [premiumWhatsappGroupUrl, setPremiumWhatsappGroupUrl] = useState('');
+  const [paywallEnabled, setPaywallEnabled] = useState(false);
+  const [paywallBrowsingThreshold, setPaywallBrowsingThreshold] = useState('30');
+  const [paywallChattingThreshold, setPaywallChattingThreshold] = useState('20');
 
   // Plans state
   const [plans, setPlans] = useState<AdminPlan[]>([]);
@@ -72,6 +76,10 @@ export default function SettingsPage() {
     setStoryExpiry(String(s.story_expiry_hours));
     setMaxPhotos(String(s.max_photos));
     setMinAppVersion(s.min_app_version);
+    setPremiumWhatsappGroupUrl(s.premium_whatsapp_group_url ?? '');
+    setPaywallEnabled(s.paywall_enabled ?? false);
+    setPaywallBrowsingThreshold(String(s.paywall_browsing_threshold ?? 30));
+    setPaywallChattingThreshold(String(s.paywall_chatting_threshold ?? 20));
   }, []);
 
   useEffect(() => {
@@ -116,6 +124,10 @@ export default function SettingsPage() {
         daily_super_like_limit: parseInt(dailySuperLikeLimit, 10) || 3,
         story_expiry_hours: parseInt(storyExpiry, 10) || 24,
         max_photos: parseInt(maxPhotos, 10) || 6,
+        premium_whatsapp_group_url: premiumWhatsappGroupUrl.trim(),
+        paywall_enabled: paywallEnabled,
+        paywall_browsing_threshold: parseInt(paywallBrowsingThreshold, 10) || 0,
+        paywall_chatting_threshold: parseInt(paywallChattingThreshold, 10) || 0,
       });
       applySettings(updated);
       setSaved(true);
@@ -136,7 +148,11 @@ export default function SettingsPage() {
        dailySwipeLimit !== String(settings.daily_swipe_limit) ||
        dailySuperLikeLimit !== String(settings.daily_super_like_limit) ||
        storyExpiry !== String(settings.story_expiry_hours) ||
-       maxPhotos !== String(settings.max_photos))
+       maxPhotos !== String(settings.max_photos) ||
+       premiumWhatsappGroupUrl !== (settings.premium_whatsapp_group_url ?? '') ||
+       paywallEnabled !== (settings.paywall_enabled ?? false) ||
+       paywallBrowsingThreshold !== String(settings.paywall_browsing_threshold ?? 30) ||
+       paywallChattingThreshold !== String(settings.paywall_chatting_threshold ?? 20))
     : false;
 
   // ─── Plan CRUD ─────────────────────────────────────────────────────
@@ -395,6 +411,74 @@ export default function SettingsPage() {
               type="number"
               value={maxPhotos}
               onChange={(e) => setMaxPhotos(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Premium Community */}
+        <div className="settings-card" style={{ gridColumn: '1 / -1' }}>
+          <h3>Premium Community</h3>
+          <div className="settings-row" style={{ alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="settings-row-label">Premium WhatsApp Group Link</div>
+              <div className="settings-row-desc">
+                Shown to users with an active premium subscription in the app and website.
+                Leave blank to hide the Join button.
+              </div>
+            </div>
+            <input
+              className="form-input"
+              style={{ width: 360, maxWidth: '55%', textAlign: 'left', padding: '6px 10px', fontSize: 13 }}
+              type="url"
+              placeholder="https://chat.whatsapp.com/..."
+              value={premiumWhatsappGroupUrl}
+              onChange={(e) => setPremiumWhatsappGroupUrl(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Paywall */}
+        <div className="settings-card" style={{ gridColumn: '1 / -1' }}>
+          <h3>Paywall</h3>
+          <div className="settings-row">
+            <div>
+              <div className="settings-row-label">Paywall Enabled</div>
+              <div className="settings-row-desc">
+                Show the upgrade popup once a free user crosses the browsing or chatting threshold.
+                The popup re-appears on every action until the user upgrades.
+              </div>
+            </div>
+            <label className="toggle">
+              <input type="checkbox" checked={paywallEnabled} onChange={() => setPaywallEnabled(!paywallEnabled)} />
+              <span className="toggle-slider" />
+            </label>
+          </div>
+          <div className="settings-row">
+            <div>
+              <div className="settings-row-label">Browsing Threshold</div>
+              <div className="settings-row-desc">Lifetime browse actions allowed before the paywall pops up</div>
+            </div>
+            <input
+              className="form-input"
+              style={{ width: 90, textAlign: 'right', padding: '6px 10px', fontSize: 13 }}
+              type="number"
+              min={0}
+              value={paywallBrowsingThreshold}
+              onChange={(e) => setPaywallBrowsingThreshold(e.target.value)}
+            />
+          </div>
+          <div className="settings-row">
+            <div>
+              <div className="settings-row-label">Chatting Threshold</div>
+              <div className="settings-row-desc">Lifetime chat messages allowed before the paywall pops up</div>
+            </div>
+            <input
+              className="form-input"
+              style={{ width: 90, textAlign: 'right', padding: '6px 10px', fontSize: 13 }}
+              type="number"
+              min={0}
+              value={paywallChattingThreshold}
+              onChange={(e) => setPaywallChattingThreshold(e.target.value)}
             />
           </div>
         </div>

@@ -336,7 +336,13 @@ export interface AdminVerification {
   user_id: string;
   user_name: string | null;
   user_email: string | null;
+  user_verification_state: 'not_submitted' | 'approved' | 'rejected';
+  media_type: 'selfie' | 'video';
   selfie_url: string | null;
+  video_url: string | null;
+  video_thumbnail_url: string | null;
+  duration_seconds: number | null;
+  script_version: string | null;
   primary_photo_url: string | null;
   status: 'pending' | 'approved' | 'rejected';
   rejection_reason: string | null;
@@ -347,6 +353,33 @@ export interface AdminVerification {
 export interface PaginatedVerificationsResponse {
   verifications: AdminVerification[];
   pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+// --- Admin Account Deletions ---
+
+export interface AdminAccountDeletion {
+  id: string;
+  user_id: string;
+  name: string | null;
+  email: string | null;
+  primary_photo_url: string | null;
+  status: 'pending_deletion' | 'deleted';
+  source: 'user' | 'admin' | 'cron' | null;
+  requested_at: string | null;
+  scheduled_for: string | null;
+  finalized_at: string | null;
+  days_remaining: number | null;
+  created_at: string | null;
+}
+
+export interface PaginatedAccountDeletionsResponse {
+  requests: AdminAccountDeletion[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+export interface AccountDeletionCounts {
+  pending: number;
+  deleted: number;
 }
 
 // --- Admin Matches ---

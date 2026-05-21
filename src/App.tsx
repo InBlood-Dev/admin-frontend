@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import './App.css';
 import { useAuth } from './context/AuthContext';
@@ -11,10 +12,13 @@ import MatchesPage from './pages/MatchesPage';
 import ReportsPage from './pages/ReportsPage';
 import StoriesPage from './pages/StoriesPage';
 import VerificationsPage from './pages/VerificationsPage';
+import AccountDeletionsPage from './pages/AccountDeletionsPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
 import LegalPagesPage from './pages/LegalPagesPage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import accountDeletionService from './services/accountDeletion.service';
 
 const pageTitles: Record<string, string> = {
   '/': 'Dashboard',
@@ -23,10 +27,12 @@ const pageTitles: Record<string, string> = {
   '/reports': 'Content Moderation',
   '/stories': 'Stories Moderation',
   '/verifications': 'Verification Queue',
+  '/account-deletions': 'Account Deletion Requests',
   '/subscriptions': 'Premium & Payments',
   '/notifications': 'Push Notifications',
   '/settings': 'App Config',
   '/legal-pages': 'Legal Pages',
+  '/analytics': 'In-house Analytics',
 };
 
 function AppLayout() {
@@ -34,12 +40,30 @@ function AppLayout() {
   const location = useLocation();
   const title = pageTitles[location.pathname] || (location.pathname.startsWith('/users/') ? 'User Management' : 'Dashboard');
 
+  const [pendingDeletions, setPendingDeletions] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    accountDeletionService
+      .getCounts()
+      .then((counts) => {
+        if (!cancelled) setPendingDeletions(counts.pending);
+      })
+      .catch(() => {
+        // Best-effort — sidebar badge not mission-critical.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname]);
+
   return (
     <div className="app-layout">
       <Sidebar
         onLogout={logout}
         pendingReports={0}
         pendingVerifications={0}
+        pendingDeletions={pendingDeletions}
       />
       <div className="app-main">
         <header className="app-header">
@@ -57,10 +81,12 @@ function AppLayout() {
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/stories" element={<StoriesPage />} />
             <Route path="/verifications" element={<VerificationsPage />} />
+            <Route path="/account-deletions" element={<AccountDeletionsPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/legal-pages" element={<LegalPagesPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
           </Routes>
         </main>
       </div>
