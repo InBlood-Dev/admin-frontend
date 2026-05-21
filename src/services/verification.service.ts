@@ -5,6 +5,7 @@ export interface ListVerificationsParams {
   page?: number;
   limit?: number;
   status?: 'pending' | 'approved' | 'rejected';
+  media_type?: 'selfie' | 'video';
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
 }

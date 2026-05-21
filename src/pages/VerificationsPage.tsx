@@ -158,7 +158,13 @@ function SkeletonRows() {
   );
 }
 
-export default function VerificationsPage() {
+interface VerificationsPageProps {
+  /** Which verification flow this page shows. Drives both the API filter and the labels. */
+  mediaType: 'video' | 'selfie';
+}
+
+export default function VerificationsPage({ mediaType }: VerificationsPageProps) {
+  const flowLabel = mediaType === 'video' ? 'Video' : 'Selfie';
   const [verifications, setVerifications] = useState<AdminVerification[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: PAGE_LIMIT, total: 0, totalPages: 1 });
   const [page, setPage] = useState(1);
@@ -185,6 +191,7 @@ export default function VerificationsPage() {
       const params: Parameters<typeof verificationService.listVerifications>[0] = {
         page: p,
         limit: PAGE_LIMIT,
+        media_type: mediaType,
         sort_by: 'created_at',
         sort_order: 'desc',
       };
@@ -198,7 +205,7 @@ export default function VerificationsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [mediaType]);
 
   useEffect(() => {
     fetchVerifications(page, statusFilter);
@@ -279,6 +286,7 @@ export default function VerificationsPage() {
       const params: Parameters<typeof verificationService.listVerifications>[0] = {
         page: 1,
         limit: 9999,
+        media_type: mediaType,
         sort_by: 'created_at',
         sort_order: 'desc',
       };
@@ -373,20 +381,20 @@ export default function VerificationsPage() {
     <div className="animate-in">
       <div className="page-top">
         <div>
-          <h2>Verification Queue</h2>
+          <h2>{flowLabel} Verification Queue</h2>
           <p>
             {loading
               ? 'Loading…'
               : statusFilter === ''
-              ? `${pagination.total} total verification requests`
-              : `${pagination.total} ${statusFilter} verification requests`}
+              ? `${pagination.total} total ${flowLabel.toLowerCase()} verification requests`
+              : `${pagination.total} ${statusFilter} ${flowLabel.toLowerCase()} verification requests`}
           </p>
         </div>
       </div>
 
       <div className="table-card">
         <div className="table-header">
-          <h3>Verification Requests</h3>
+          <h3>{flowLabel} Verification Requests</h3>
           <div className="table-header-actions">
             {(['pending', 'approved', 'rejected', ''] as const).map((s) => {
               const label = s === '' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1);
@@ -450,7 +458,7 @@ export default function VerificationsPage() {
                 </th>
                 <th>User</th>
                 <th>Email</th>
-                <th>Media</th>
+                <th>{flowLabel}</th>
                 <th>Profile Photo</th>
                 <th>Submitted</th>
                 <th>Status</th>

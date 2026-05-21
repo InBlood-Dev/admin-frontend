@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import './App.css';
 import { useAuth } from './context/AuthContext';
 import Sidebar from './components/Sidebar';
@@ -26,7 +26,8 @@ const pageTitles: Record<string, string> = {
   '/matches': 'Matches',
   '/reports': 'Content Moderation',
   '/stories': 'Stories Moderation',
-  '/verifications': 'Verification Queue',
+  '/verifications/video': 'Video Verification',
+  '/verifications/selfie': 'Selfie Verification',
   '/account-deletions': 'Account Deletion Requests',
   '/subscriptions': 'Premium & Payments',
   '/notifications': 'Push Notifications',
@@ -80,7 +81,9 @@ function AppLayout() {
             <Route path="/matches" element={<MatchesPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/stories" element={<StoriesPage />} />
-            <Route path="/verifications" element={<VerificationsPage />} />
+            <Route path="/verifications" element={<Navigate to="/verifications/video" replace />} />
+            <Route path="/verifications/video" element={<VerificationsPage mediaType="video" />} />
+            <Route path="/verifications/selfie" element={<VerificationsPage mediaType="selfie" />} />
             <Route path="/account-deletions" element={<AccountDeletionsPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />

@@ -5,6 +5,7 @@ import {
   Heart,
   ShieldAlert,
   BadgeCheck,
+  Video,
   CreditCard,
   Settings,
   LogOut,
@@ -56,9 +57,12 @@ export default function Sidebar({ onLogout, pendingReports, pendingVerifications
         <NavLink to="/stories">
           <Clapperboard /> Stories
         </NavLink>
-        <NavLink to="/verifications">
-          <BadgeCheck /> Verifications
+        <NavLink to="/verifications/video">
+          <Video /> Video Verifications
           {pendingVerifications > 0 && <span className="sidebar-badge">{pendingVerifications}</span>}
+        </NavLink>
+        <NavLink to="/verifications/selfie">
+          <BadgeCheck /> Selfie Verifications
         </NavLink>
         <NavLink to="/account-deletions">
           <Trash2 /> Account Deletions
