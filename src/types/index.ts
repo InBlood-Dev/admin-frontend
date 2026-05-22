@@ -495,6 +495,21 @@ export interface DateRange {
   to: string | null;
 }
 
+// --- Hour-of-day ("time of day") analytics ---
+// A point in a 24-bucket hour-of-day series (labels '00:00'–'23:00').
+// `hour` is the bucket label; any other key is a numeric metric value.
+export interface HourPoint {
+  hour: string;
+  [metric: string]: number | string;
+}
+
+// A categorical breakdown bucketed by hour: `keys` lists the stacked series
+// (e.g. genders, platforms), `data` holds 24 zero-filled rows.
+export interface HourlyCategorical {
+  keys: string[];
+  data: HourPoint[];
+}
+
 export interface PremiumFreeStats {
   total: number;
   active_today: number;

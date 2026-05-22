@@ -15,6 +15,8 @@ import dashboardService from '../services/dashboard.service';
 import ErrorModal from '../components/ErrorModal';
 import ExportModal from '../components/ExportModal';
 import DateRangePicker from '../components/DateRangePicker';
+import ChartGranularityToggle, { type ChartGranularity } from '../components/ChartGranularityToggle';
+import { HourlySeriesChart, HourlyStackedChart } from '../components/HourlyChart';
 import type {
   DashboardStats, UserGrowthPoint, SignupsPoint, RevenuePoint, RevenueByPlan,
   GenderPoint, AgeRangePoint, LocationDistribution, OrientationPoint, DemographicsSummary,
@@ -22,6 +24,7 @@ import type {
   AnalyticsOverview, DailyTrendPoint, DailySessionPoint, TopPage, TopEvent, ReferrerPoint, DevicePoint,
   PlayInstallStats, SearchConsoleOverview, SearchQueryRow, SearchPageRow, SearchDailyPoint,
   UptimeStats, UptimePoint,
+  HourPoint, HourlyCategorical,
 } from '../types';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -248,6 +251,12 @@ export default function Dashboard() {
   const [locationView, setLocationView] = useState<'states' | 'cities'>('states');
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null });
 
+  // ── Hour-of-day per-chart toggles ─────────────────────────────────────────
+  // `hourMode[chartId]` = is this chart in by-hour view; `hourData[chartId]`
+  // caches the fetched 24-bucket series for the current date range.
+  const [hourMode, setHourMode] = useState<Record<string, boolean>>({});
+  const [hourData, setHourData] = useState<Record<string, HourPoint[] | HourlyCategorical>>({});
+
   // ── Core data ───────────────────────────────────────────────────────────
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [userGrowthData, setUserGrowthData] = useState<UserGrowthPoint[]>([]);
@@ -415,6 +424,35 @@ export default function Dashboard() {
     if (activeSection === 'analytics') fetchAnalytics(dateRange);
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Hour-of-day fetchers (chartId → hourly endpoint) ──────────────────────
+  const hourFetchers: Record<string, (r: DateRange) => Promise<HourPoint[] | HourlyCategorical>> = {
+    userGrowth: dashboardService.getUserGrowthHourly,
+    signups: dashboardService.getSignupsHourly,
+    revenue: dashboardService.getRevenueHourly,
+    gender: dashboardService.getGenderHourly,
+    age: dashboardService.getAgeHourly,
+    orientation: dashboardService.getOrientationHourly,
+    location: dashboardService.getLocationHourly,
+    premiumGrowth: dashboardService.getPremiumGrowthHourly,
+    trends: dashboardService.getAnalyticsDailyTrendsHourly,
+    sessions: dashboardService.getAnalyticsDailySessionsHourly,
+    devices: dashboardService.getAnalyticsDevicesHourly,
+    referrers: dashboardService.getAnalyticsReferrersHourly,
+  };
+
+  async function toggleHour(chartId: string, mode: ChartGranularity) {
+    const on = mode === 'hour';
+    setHourMode((m) => ({ ...m, [chartId]: on }));
+    if (on && !hourData[chartId]) {
+      try {
+        const data = await hourFetchers[chartId](dateRange);
+        setHourData((d) => ({ ...d, [chartId]: data }));
+      } catch (err) {
+        setError({ title: 'Failed to load hourly data', message: extractErrorMessage(err) });
+      }
+    }
+  }
+
   // ── Date range change: refetch active section ──────────────────────────
   function handleDateRangeChange(newRange: DateRange) {
     setDateRange(newRange);
@@ -422,6 +460,16 @@ export default function Dashboard() {
     setDemographicsLoaded(false);
     setPremiumLoaded(false);
     setAnalyticsLoaded(false);
+
+    // Invalidate hourly caches; re-fetch any charts still in by-hour view.
+    setHourData({});
+    Object.keys(hourMode).forEach((id) => {
+      if (hourMode[id]) {
+        hourFetchers[id](newRange)
+          .then((data) => setHourData((d) => ({ ...d, [id]: data })))
+          .catch(() => { /* surfaced on next manual toggle */ });
+      }
+    });
 
     // Refetch current section
     fetchOverview(newRange);
@@ -559,8 +607,10 @@ export default function Dashboard() {
             <>
               <div className="charts-row">
                 <div className="chart-card">
-                  <div className="chart-card-header"><h3>User Growth</h3><span className="chart-badge">{dateRange.from ? 'Filtered' : '6 months'}</span></div>
-                  {userGrowthData.length === 0 ? <p className="chart-empty">No data available</p> : (
+                  <div className="chart-card-header"><h3>User Growth</h3><ChartGranularityToggle value={hourMode.userGrowth ? 'hour' : 'default'} defaultLabel={dateRange.from ? 'Filtered' : 'Monthly'} onChange={(g) => toggleHour('userGrowth', g)} /></div>
+                  {hourMode.userGrowth ? (
+                    <HourlySeriesChart data={(hourData.userGrowth as HourPoint[]) ?? []} series={[{ key: 'users', color: '#FF6B6B', name: 'Signups' }]} type="area" />
+                  ) : userGrowthData.length === 0 ? <p className="chart-empty">No data available</p> : (
                     <div className="chart-container"><ResponsiveContainer width="100%" height={220}>
                       <AreaChart data={userGrowthData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                         <defs><linearGradient id="gradientUsers" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#FF6B6B" stopOpacity={0.35} /><stop offset="100%" stopColor="#CC2936" stopOpacity={0} /></linearGradient></defs>
@@ -571,8 +621,10 @@ export default function Dashboard() {
                   )}
                 </div>
                 <div className="chart-card">
-                  <div className="chart-card-header"><h3>New Signups</h3><span className="chart-badge">{dateRange.from ? 'Filtered' : 'This week'}</span></div>
-                  {signupsData.length === 0 ? <p className="chart-empty">No data available</p> : (
+                  <div className="chart-card-header"><h3>New Signups</h3><ChartGranularityToggle value={hourMode.signups ? 'hour' : 'default'} defaultLabel={dateRange.from ? 'Filtered' : 'Daily'} onChange={(g) => toggleHour('signups', g)} /></div>
+                  {hourMode.signups ? (
+                    <HourlySeriesChart data={(hourData.signups as HourPoint[]) ?? []} series={[{ key: 'signups', color: '#4D9FFF', name: 'Signups' }]} type="bar" />
+                  ) : signupsData.length === 0 ? <p className="chart-empty">No data available</p> : (
                     <div className="chart-container"><ResponsiveContainer width="100%" height={220}>
                       <BarChart data={signupsData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} /><XAxis dataKey="day" tick={{ fill: '#888', fontSize: 11 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: '#888', fontSize: 11 }} axisLine={false} tickLine={false} /><Tooltip content={<ChartTooltip />} cursor={BAR_CURSOR} />
@@ -586,8 +638,10 @@ export default function Dashboard() {
               </div>
               <div className="charts-row">
                 <div className="chart-card">
-                  <div className="chart-card-header"><h3>Monthly Revenue</h3><span className="chart-badge">{dateRange.from ? 'Filtered' : '6 months'}</span></div>
-                  {revenueData.length === 0 ? <p className="chart-empty">No data available</p> : (
+                  <div className="chart-card-header"><h3>Monthly Revenue</h3><ChartGranularityToggle value={hourMode.revenue ? 'hour' : 'default'} defaultLabel={dateRange.from ? 'Filtered' : 'Monthly'} onChange={(g) => toggleHour('revenue', g)} /></div>
+                  {hourMode.revenue ? (
+                    <HourlySeriesChart data={(hourData.revenue as HourPoint[]) ?? []} series={[{ key: 'revenue', color: '#69F0AE', name: 'Revenue' }]} type="area" valuePrefix="₹" />
+                  ) : revenueData.length === 0 ? <p className="chart-empty">No data available</p> : (
                     <div className="chart-container"><ResponsiveContainer width="100%" height={220}>
                       <AreaChart data={revenueData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                         <defs><linearGradient id="gradientRevenue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#69F0AE" stopOpacity={0.35} /><stop offset="100%" stopColor="#2E7D32" stopOpacity={0} /></linearGradient></defs>
@@ -638,8 +692,10 @@ export default function Dashboard() {
             <>
               <div className="charts-row">
                 <div className="chart-card">
-                  <div className="chart-card-header"><h3>Gender Distribution</h3><span className="chart-badge">{genderData.reduce((s, g) => s + g.count, 0)} users</span></div>
-                  {genderData.length === 0 ? <p className="chart-empty">No data available</p> : (
+                  <div className="chart-card-header"><h3>Gender Distribution</h3><ChartGranularityToggle value={hourMode.gender ? 'hour' : 'default'} defaultLabel="Total" onChange={(g) => toggleHour('gender', g)} /></div>
+                  {hourMode.gender ? (
+                    <HourlyStackedChart cat={(hourData.gender as HourlyCategorical) ?? { keys: [], data: [] }} type="bar" colorMap={GENDER_COLORS} height={260} />
+                  ) : genderData.length === 0 ? <p className="chart-empty">No data available</p> : (
                     <div className="chart-container chart-container-with-legend"><ResponsiveContainer width="100%" height={260}><PieChart>
                       <Pie data={genderPieData} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={4} dataKey="value" stroke="#0B0B0B" strokeWidth={2} labelLine={{ stroke: '#555', strokeWidth: 1 }} label={renderPieLabel} animationDuration={1200} animationEasing="ease-out">
                         {genderPieData.map((entry, i) => <Cell key={i} fill={`url(#genderGrad-${entry.name.replace(/\s/g, '-')})`} />)}
@@ -650,8 +706,10 @@ export default function Dashboard() {
                   )}
                 </div>
                 <div className="chart-card">
-                  <div className="chart-card-header"><h3>Sexual Orientation</h3><span className="chart-badge">{orientationData.reduce((s, o) => s + o.count, 0)} users</span></div>
-                  {orientationData.length === 0 ? <p className="chart-empty">No data available</p> : (
+                  <div className="chart-card-header"><h3>Sexual Orientation</h3><ChartGranularityToggle value={hourMode.orientation ? 'hour' : 'default'} defaultLabel="Total" onChange={(g) => toggleHour('orientation', g)} /></div>
+                  {hourMode.orientation ? (
+                    <HourlyStackedChart cat={(hourData.orientation as HourlyCategorical) ?? { keys: [], data: [] }} type="bar" height={260} />
+                  ) : orientationData.length === 0 ? <p className="chart-empty">No data available</p> : (
                     <div className="chart-container chart-container-with-legend"><ResponsiveContainer width="100%" height={260}><PieChart>
                       <Pie data={orientationPieData} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={4} dataKey="value" stroke="#0B0B0B" strokeWidth={2} labelLine={{ stroke: '#555', strokeWidth: 1 }} label={renderPieLabel} animationDuration={1200} animationEasing="ease-out">
                         {orientationPieData.map((_, i) => <Cell key={i} fill={`url(#chartGrad${i % CHART_GRADIENTS.length})`} />)}
@@ -664,8 +722,10 @@ export default function Dashboard() {
               </div>
               <div className="charts-row">
                 <div className="chart-card chart-card-wide">
-                  <div className="chart-card-header"><h3>Age Distribution</h3><span className="chart-badge">{ageData.reduce((s, a) => s + a.count, 0)} users</span></div>
-                  {ageData.length === 0 ? <p className="chart-empty">No data available</p> : (
+                  <div className="chart-card-header"><h3>Age Distribution</h3><ChartGranularityToggle value={hourMode.age ? 'hour' : 'default'} defaultLabel="Total" onChange={(g) => toggleHour('age', g)} /></div>
+                  {hourMode.age ? (
+                    <HourlyStackedChart cat={(hourData.age as HourlyCategorical) ?? { keys: [], data: [] }} type="bar" height={260} />
+                  ) : ageData.length === 0 ? <p className="chart-empty">No data available</p> : (
                     <div className="chart-container"><ResponsiveContainer width="100%" height={260}>
                       <BarChart data={ageData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} /><XAxis dataKey="range" tick={{ fill: '#888', fontSize: 11 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: '#888', fontSize: 11 }} axisLine={false} tickLine={false} /><Tooltip content={<ChartTooltip />} cursor={BAR_CURSOR} />
@@ -695,9 +755,14 @@ export default function Dashboard() {
                 <div className="chart-card">
                   <div className="chart-card-header">
                     <h3>Location Distribution</h3>
-                    <FilterDropdown value={locationView} onChange={(v) => setLocationView(v as 'states' | 'cities')} options={[{ value: 'states', label: 'States' }, { value: 'cities', label: 'Cities' }]} label="View" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {!hourMode.location && <FilterDropdown value={locationView} onChange={(v) => setLocationView(v as 'states' | 'cities')} options={[{ value: 'states', label: 'States' }, { value: 'cities', label: 'Cities' }]} label="View" />}
+                      <ChartGranularityToggle value={hourMode.location ? 'hour' : 'default'} defaultLabel="Total" onChange={(g) => toggleHour('location', g)} />
+                    </div>
                   </div>
-                  {locationItems.length === 0 ? <p className="chart-empty">No data available</p> : (
+                  {hourMode.location ? (
+                    <HourlyStackedChart cat={(hourData.location as HourlyCategorical) ?? { keys: [], data: [] }} type="bar" height={300} />
+                  ) : locationItems.length === 0 ? <p className="chart-empty">No data available</p> : (
                     <div className="chart-container"><ResponsiveContainer width="100%" height={300}>
                       <Treemap data={treemapData} dataKey="size" aspectRatio={4 / 3} stroke="#0B0B0B" animationDuration={1000}
                         content={({ x, y, width, height, name, value }: { x: number; y: number; width: number; height: number; name: string; value: number }) => {
@@ -793,8 +858,10 @@ export default function Dashboard() {
               {/* Growth comparison chart */}
               <div className="charts-row">
                 <div className="chart-card chart-card-wide">
-                  <div className="chart-card-header"><h3>User Growth: Premium vs Free</h3><span className="chart-badge">Monthly</span></div>
-                  {premiumData.growth.length === 0 ? <p className="chart-empty">No data available</p> : (
+                  <div className="chart-card-header"><h3>User Growth: Premium vs Free</h3><ChartGranularityToggle value={hourMode.premiumGrowth ? 'hour' : 'default'} defaultLabel="Monthly" onChange={(g) => toggleHour('premiumGrowth', g)} /></div>
+                  {hourMode.premiumGrowth ? (
+                    <HourlySeriesChart data={(hourData.premiumGrowth as HourPoint[]) ?? []} series={[{ key: 'premium', color: '#FFCC80', name: 'Premium' }, { key: 'free', color: '#64B5F6', name: 'Free' }]} type="area" height={280} />
+                  ) : premiumData.growth.length === 0 ? <p className="chart-empty">No data available</p> : (
                     <div className="chart-container"><ResponsiveContainer width="100%" height={280}>
                       <AreaChart data={premiumData.growth} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                         <defs>
@@ -1057,8 +1124,10 @@ export default function Dashboard() {
               {/* Daily trends chart */}
               <div className="charts-row" style={{ marginTop: 24 }}>
                 <div className="chart-card chart-card-wide">
-                  <div className="chart-card-header"><h3>Daily Page Views & Users</h3><span className="chart-badge">Last {dailyTrends.length} days</span></div>
-                  {dailyTrends.length === 0 ? <p className="chart-empty">No data yet — events will appear after your first visitors</p> : (
+                  <div className="chart-card-header"><h3>Daily Page Views & Users</h3><ChartGranularityToggle value={hourMode.trends ? 'hour' : 'default'} defaultLabel="Daily" onChange={(g) => toggleHour('trends', g)} /></div>
+                  {hourMode.trends ? (
+                    <HourlySeriesChart data={(hourData.trends as HourPoint[]) ?? []} series={[{ key: 'page_views', color: '#CF6EFF', name: 'Page Views' }, { key: 'users', color: '#4DFF88', name: 'Users' }]} type="area" height={280} />
+                  ) : dailyTrends.length === 0 ? <p className="chart-empty">No data yet — events will appear after your first visitors</p> : (
                     <div className="chart-container"><ResponsiveContainer width="100%" height={280}>
                       <AreaChart data={dailyTrends} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -1076,8 +1145,10 @@ export default function Dashboard() {
               {/* Sessions chart */}
               <div className="charts-row">
                 <div className="chart-card chart-card-wide">
-                  <div className="chart-card-header"><h3>Daily Sessions & Avg. Duration</h3></div>
-                  {dailySessions.length === 0 ? <p className="chart-empty">No session data</p> : (
+                  <div className="chart-card-header"><h3>Daily Sessions & Avg. Duration</h3><ChartGranularityToggle value={hourMode.sessions ? 'hour' : 'default'} defaultLabel="Daily" onChange={(g) => toggleHour('sessions', g)} /></div>
+                  {hourMode.sessions ? (
+                    <HourlySeriesChart data={(hourData.sessions as HourPoint[]) ?? []} series={[{ key: 'sessions', color: '#FF4D4D', name: 'Sessions' }, { key: 'avg_duration', color: '#CF6EFF', name: 'Avg Duration (s)' }]} type="bar" height={260} />
+                  ) : dailySessions.length === 0 ? <p className="chart-empty">No session data</p> : (
                     <div className="chart-container"><ResponsiveContainer width="100%" height={260}>
                       <BarChart data={dailySessions} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -1137,8 +1208,10 @@ export default function Dashboard() {
               {/* Referrers & devices */}
               <div className="charts-row">
                 <div className="chart-card">
-                  <div className="chart-card-header"><h3>Referrers</h3></div>
-                  {referrers.length === 0 ? <p className="chart-empty">No referrer data</p> : (
+                  <div className="chart-card-header"><h3>Referrers</h3><ChartGranularityToggle value={hourMode.referrers ? 'hour' : 'default'} defaultLabel="Total" onChange={(g) => toggleHour('referrers', g)} /></div>
+                  {hourMode.referrers ? (
+                    <HourlyStackedChart cat={(hourData.referrers as HourlyCategorical) ?? { keys: [], data: [] }} type="bar" height={260} />
+                  ) : referrers.length === 0 ? <p className="chart-empty">No referrer data</p> : (
                     <div className="chart-container"><ResponsiveContainer width="100%" height={260}>
                       <BarChart data={referrers} layout="vertical" margin={{ top: 10, right: 10, left: 80, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -1151,8 +1224,10 @@ export default function Dashboard() {
                   )}
                 </div>
                 <div className="chart-card">
-                  <div className="chart-card-header"><h3>Devices</h3></div>
-                  {devices.length === 0 ? <p className="chart-empty">No device data</p> : (
+                  <div className="chart-card-header"><h3>Devices</h3><ChartGranularityToggle value={hourMode.devices ? 'hour' : 'default'} defaultLabel="Total" onChange={(g) => toggleHour('devices', g)} /></div>
+                  {hourMode.devices ? (
+                    <HourlyStackedChart cat={(hourData.devices as HourlyCategorical) ?? { keys: [], data: [] }} type="bar" height={260} />
+                  ) : devices.length === 0 ? <p className="chart-empty">No device data</p> : (
                     <div className="chart-container chart-container-with-legend"><ResponsiveContainer width="100%" height={260}>
                       <PieChart>
                         <Pie data={devices.map(d => ({ name: d.device, value: d.count }))} cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={4} dataKey="value" stroke="#0B0B0B" strokeWidth={2} labelLine={{ stroke: '#555', strokeWidth: 1 }} label={renderPieLabel} animationDuration={1200}>

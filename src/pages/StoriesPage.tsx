@@ -56,6 +56,7 @@ export default function StoriesPage() {
   const [confirmDelete, setConfirmDelete] = useState<AdminStory | null>(null);
   const [confirmRestore, setConfirmRestore] = useState<AdminStory | null>(null);
   const [confirmClear, setConfirmClear] = useState<AdminStory | null>(null);
+  const [lightbox, setLightbox] = useState<{ url: string; kind: 'image' | 'video' } | null>(null);
   const [error, setError] = useState<{ title: string; message: string } | null>(null);
 
   // Bulk selection
@@ -315,12 +316,20 @@ export default function StoriesPage() {
                 opacity: s.is_deleted ? 0.55 : 1,
               }}
             >
-              <div className="story-card-media" style={{ position: 'relative' }}>
+              <div
+                className="story-card-media"
+                style={{ position: 'relative', cursor: s.media_url ? 'pointer' : 'default' }}
+                onClick={() => {
+                  if (!s.media_url) return;
+                  setLightbox({ url: s.media_url, kind: s.media_type === 'video' ? 'video' : 'image' });
+                }}
+              >
                 <input
                   type="checkbox"
                   className="bulk-checkbox"
                   checked={selectedIds.has(s.id)}
                   onChange={() => toggleSelect(s.id)}
+                  onClick={(e) => e.stopPropagation()}
                   style={{ position: 'absolute', top: 6, left: 6, zIndex: 2 }}
                 />
                 {s.thumbnail_url || s.media_url ? (
@@ -334,6 +343,24 @@ export default function StoriesPage() {
                   <Video size={24} />
                 ) : (
                   <Image size={24} />
+                )}
+                {s.media_type === 'video' && s.media_url && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff',
+                      fontSize: 32,
+                      textShadow: '0 1px 6px rgba(0,0,0,0.7)',
+                      pointerEvents: 'none',
+                    }}
+                    aria-label="Play video"
+                  >
+                    ▶
+                  </div>
                 )}
                 <span className="media-type-badge">
                   {s.media_type === 'video' ? 'Video' : 'Photo'}
@@ -518,6 +545,29 @@ export default function StoriesPage() {
           </div>
         )}
       </Modal>
+
+      {lightbox && (
+        <div className="lightbox-overlay" onClick={() => setLightbox(null)}>
+          {lightbox.kind === 'video' ? (
+            <video
+              className="lightbox-img"
+              src={lightbox.url}
+              controls
+              autoPlay
+              playsInline
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: '90vw', maxHeight: '90vh', background: '#000' }}
+            />
+          ) : (
+            <img
+              className="lightbox-img"
+              src={lightbox.url}
+              alt="Story"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+        </div>
+      )}
 
       <ErrorModal
         isOpen={!!error}

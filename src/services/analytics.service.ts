@@ -12,6 +12,7 @@ export interface AnalyticsFilter {
   platform?: 'ios' | 'android' | 'web' | '';
   screen?: string;
   event_name?: string;
+  granularity?: 'hour';
 }
 
 export interface OverviewResponse {
@@ -29,8 +30,10 @@ export interface OverviewResponse {
     avg_events: number;
     avg_screens: number;
   };
-  daily: Array<{ day: string; events: number; unique_users: number; unique_sessions: number }>;
+  daily: Array<{ day?: string; hour?: string; events: number; unique_users: number; unique_sessions: number }>;
   by_platform: Array<{ platform: string; count: number }>;
+  granularity?: 'hour';
+  by_platform_hourly?: { keys: string[]; data: Array<{ hour: string } & Record<string, number>> };
 }
 
 export interface TopEventRow {
@@ -85,6 +88,29 @@ export interface ListEventsResponse {
   pagination: { page: number; limit: number; total: number; totalPages: number };
 }
 
+export interface PlatformGroup {
+  web: number;
+  app: number;
+  unknown: number;
+}
+
+type HourlyCategoricalShape = { keys: string[]; data: Array<{ hour: string } & Record<string, number>> };
+
+export interface UsersByPlatformResponse {
+  active_users: {
+    total: number;
+    by_platform: Array<{ platform: string; users: number }>;
+    grouped: PlatformGroup;
+    hourly?: HourlyCategoricalShape;
+  };
+  new_signups: {
+    total: number;
+    by_platform: Array<{ platform: string; users: number }>;
+    grouped: PlatformGroup;
+    hourly?: HourlyCategoricalShape;
+  };
+}
+
 function buildParams(filter: AnalyticsFilter): Record<string, string> {
   const out: Record<string, string> = {};
   if (filter.from) out.from = filter.from;
@@ -92,6 +118,7 @@ function buildParams(filter: AnalyticsFilter): Record<string, string> {
   if (filter.platform) out.platform = filter.platform;
   if (filter.screen) out.screen = filter.screen;
   if (filter.event_name) out.event_name = filter.event_name;
+  if (filter.granularity) out.granularity = filter.granularity;
   return out;
 }
 
@@ -146,6 +173,13 @@ async function activeUsers(filter: AnalyticsFilter): Promise<Array<{ day: string
   return res.data.data.items;
 }
 
+async function usersByPlatform(filter: AnalyticsFilter): Promise<UsersByPlatformResponse> {
+  const res = await api.get('/admin/analytics-internal/users-by-platform', {
+    params: buildParams(filter)
+  });
+  return res.data.data;
+}
+
 /**
  * Triggers an XLSX download. Calls the export route as a binary blob and
  * pipes it through a hidden anchor tag with `download` attribute.
@@ -179,5 +213,6 @@ export default {
   funnel,
   listEvents,
   activeUsers,
+  usersByPlatform,
   downloadXlsx
 };
