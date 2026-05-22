@@ -7,12 +7,16 @@ import type {
   TopPage, TopEvent, ReferrerPoint, DevicePoint,
   PlayInstallStats, SearchConsoleOverview, SearchQueryRow, SearchPageRow,
   SearchDailyPoint, UptimeStats, UptimePoint,
+  HourPoint, HourlyCategorical,
 } from '../types';
 
-function buildParams(range?: DateRange): Record<string, string> {
+type Granularity = 'hour' | undefined;
+
+function buildParams(range?: DateRange, granularity?: Granularity): Record<string, string> {
   const params: Record<string, string> = {};
   if (range?.from) params.from = range.from;
   if (range?.to) params.to = range.to;
+  if (granularity === 'hour') params.granularity = 'hour';
   return params;
 }
 
@@ -145,6 +149,37 @@ async function getUptimeTimeline(): Promise<UptimePoint[]> {
   return data.data;
 }
 
+// --- Hour-of-day variants ---
+// Same endpoints, `granularity=hour`. Time-series charts return HourPoint[];
+// categorical charts return HourlyCategorical ({ keys, data }).
+
+async function getHourlySeries(path: string, range?: DateRange): Promise<HourPoint[]> {
+  const { data } = await api.get(path, { params: buildParams(range, 'hour') });
+  return data.data;
+}
+
+async function getHourlyCategorical(path: string, range?: DateRange): Promise<HourlyCategorical> {
+  const { data } = await api.get(path, { params: buildParams(range, 'hour') });
+  return data.data;
+}
+
+const getSignupsHourly = (range?: DateRange) => getHourlySeries('/admin/dashboard/signups', range);
+const getUserGrowthHourly = (range?: DateRange) => getHourlySeries('/admin/dashboard/user-growth', range);
+const getRevenueHourly = (range?: DateRange) => getHourlySeries('/admin/dashboard/revenue', range);
+const getGenderHourly = (range?: DateRange) => getHourlyCategorical('/admin/dashboard/gender-distribution', range);
+const getAgeHourly = (range?: DateRange) => getHourlyCategorical('/admin/dashboard/age-distribution', range);
+const getOrientationHourly = (range?: DateRange) => getHourlyCategorical('/admin/dashboard/orientation-distribution', range);
+const getLocationHourly = (range?: DateRange) => getHourlyCategorical('/admin/dashboard/location-distribution', range);
+const getAnalyticsDailyTrendsHourly = (range?: DateRange) => getHourlySeries('/admin/analytics/daily-trends', range);
+const getAnalyticsDailySessionsHourly = (range?: DateRange) => getHourlySeries('/admin/analytics/daily-sessions', range);
+const getAnalyticsDevicesHourly = (range?: DateRange) => getHourlyCategorical('/admin/analytics/devices', range);
+const getAnalyticsReferrersHourly = (range?: DateRange) => getHourlyCategorical('/admin/analytics/referrers', range);
+
+async function getPremiumGrowthHourly(range?: DateRange): Promise<HourPoint[]> {
+  const { data } = await api.get('/admin/dashboard/premium-comparison', { params: buildParams(range, 'hour') });
+  return data.data.growth;
+}
+
 const dashboardService = {
   getStats,
   getUserGrowth,
@@ -171,6 +206,19 @@ const dashboardService = {
   getSearchTrends,
   getUptimeStats,
   getUptimeTimeline,
+  // Hour-of-day variants
+  getSignupsHourly,
+  getUserGrowthHourly,
+  getRevenueHourly,
+  getGenderHourly,
+  getAgeHourly,
+  getOrientationHourly,
+  getLocationHourly,
+  getPremiumGrowthHourly,
+  getAnalyticsDailyTrendsHourly,
+  getAnalyticsDailySessionsHourly,
+  getAnalyticsDevicesHourly,
+  getAnalyticsReferrersHourly,
 };
 
 export default dashboardService;

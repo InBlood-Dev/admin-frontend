@@ -470,6 +470,41 @@
   white-space: nowrap;
 }
 
+/* Per-chart hour-of-day toggle (segmented control) */
+.chart-gran-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-input);
+  border-radius: 20px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.chart-gran-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 3px 9px;
+  border-radius: 18px;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.chart-gran-toggle button:hover {
+  color: var(--text-primary, #f0f0f0);
+}
+
+.chart-gran-toggle button.active {
+  color: #fff;
+  background: var(--accent, #FF4D4D);
+}
+
 .chart-container {
   width: 100%;
   min-height: 200px;

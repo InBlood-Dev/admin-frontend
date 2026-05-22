@@ -3,7 +3,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts';
-import { Download, RefreshCw, Activity } from 'lucide-react';
+import { Download, RefreshCw, Activity, Smartphone, Globe, HelpCircle } from 'lucide-react';
 import analyticsService, {
   AnalyticsFilter,
   OverviewResponse,
@@ -11,11 +11,14 @@ import analyticsService, {
   TopScreenRow,
   TopSectionRow,
   AnalyticsEventRow,
-  FunnelStep
+  FunnelStep,
+  UsersByPlatformResponse
 } from '../services/analytics.service';
 import ErrorModal from '../components/ErrorModal';
 import DateRangePicker from '../components/DateRangePicker';
-import type { DateRange } from '../types';
+import ChartGranularityToggle, { type ChartGranularity } from '../components/ChartGranularityToggle';
+import { HourlySeriesChart, HourlyStackedChart } from '../components/HourlyChart';
+import type { DateRange, HourPoint, HourlyCategorical } from '../types';
 
 const PAGE_LIMIT = 50;
 const PLATFORM_OPTIONS = ['', 'ios', 'android', 'web'] as const;
@@ -78,6 +81,7 @@ export default function AnalyticsPage() {
 
   // Data per tab.
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
+  const [usersPlatform, setUsersPlatform] = useState<UsersByPlatformResponse | null>(null);
   const [topEvents, setTopEvents] = useState<TopEventRow[]>([]);
   const [topScreens, setTopScreens] = useState<TopScreenRow[]>([]);
   const [topSections, setTopSections] = useState<TopSectionRow[]>([]);
@@ -90,6 +94,12 @@ export default function AnalyticsPage() {
   const [screenFilter, setScreenFilter] = useState('');
 
   const [loading, setLoading] = useState(false);
+
+  // Per-chart hour-of-day toggles for the Overview tab. Both charts come from
+  // the same overview endpoint, so one hour-mode fetch serves both.
+  const [chartHour, setChartHour] = useState<Record<string, boolean>>({});
+  const [hourOverview, setHourOverview] = useState<OverviewResponse | null>(null);
+  const [usersPlatformHour, setUsersPlatformHour] = useState<UsersByPlatformResponse | null>(null);
 
   const filter: AnalyticsFilter = useMemo(
     () => ({
@@ -104,16 +114,18 @@ export default function AnalyticsPage() {
     setLoading(true);
     try {
       if (tab === 'overview') {
-        const [ov, te, ts, tse] = await Promise.all([
+        const [ov, te, ts, tse, ubp] = await Promise.all([
           analyticsService.overview(filter),
           analyticsService.topEvents(filter, 10),
           analyticsService.topScreens(filter, 10),
-          analyticsService.topSections(filter, 10)
+          analyticsService.topSections(filter, 10),
+          analyticsService.usersByPlatform(filter)
         ]);
         setOverview(ov);
         setTopEvents(te);
         setTopScreens(ts);
         setTopSections(tse);
+        setUsersPlatform(ubp);
       } else if (tab === 'events') {
         const te = await analyticsService.topEvents(filter, 50);
         setTopEvents(te);
@@ -147,6 +159,43 @@ export default function AnalyticsPage() {
     refresh();
   }, [refresh]);
 
+  // Fetch the hour-of-day overview (daily-by-hour + platform-by-hour) on demand.
+  const ensureHourOverview = useCallback(async () => {
+    try {
+      const ov = await analyticsService.overview({ ...filter, granularity: 'hour' });
+      setHourOverview(ov);
+    } catch (err) {
+      setError({ title: 'Failed to load hourly analytics', message: extractErrorMessage(err) });
+    }
+  }, [filter]);
+
+  // Fetch hour-of-day user/signup platform split on demand.
+  const ensureUsersPlatformHour = useCallback(async () => {
+    try {
+      const ubp = await analyticsService.usersByPlatform({ ...filter, granularity: 'hour' });
+      setUsersPlatformHour(ubp);
+    } catch (err) {
+      setError({ title: 'Failed to load hourly analytics', message: extractErrorMessage(err) });
+    }
+  }, [filter]);
+
+  function toggleChartHour(id: string, mode: ChartGranularity) {
+    const on = mode === 'hour';
+    setChartHour((m) => ({ ...m, [id]: on }));
+    if (!on) return;
+    if ((id === 'trend' || id === 'platform') && !hourOverview) ensureHourOverview();
+    if ((id === 'activeUsers' || id === 'newSignups') && !usersPlatformHour) ensureUsersPlatformHour();
+  }
+
+  // Invalidate hour data when the filter changes; refetch if a chart is still on.
+  useEffect(() => {
+    setHourOverview(null);
+    setUsersPlatformHour(null);
+    if (chartHour.trend || chartHour.platform) ensureHourOverview();
+    if (chartHour.activeUsers || chartHour.newSignups) ensureUsersPlatformHour();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
+
   // Reset paging when filter changes for the events log.
   useEffect(() => {
     if (tab === 'log') setEventsPage(1);
@@ -161,7 +210,7 @@ export default function AnalyticsPage() {
   }, [filter]);
 
   const dailyChart = (overview?.daily ?? []).map((d) => ({
-    day: typeof d.day === 'string' ? d.day.slice(0, 10) : d.day,
+    day: typeof d.day === 'string' ? d.day.slice(0, 10) : '',
     events: d.events,
     users: d.unique_users,
     sessions: d.unique_sessions
@@ -244,7 +293,7 @@ export default function AnalyticsPage() {
       </div>
 
       {tab === 'overview' && overview && (
-        <OverviewTab overview={overview} dailyChart={dailyChart} topEvents={topEvents} topScreens={topScreens} topSections={topSections} />
+        <OverviewTab overview={overview} dailyChart={dailyChart} topEvents={topEvents} topScreens={topScreens} topSections={topSections} hourOverview={hourOverview} chartHour={chartHour} onToggleHour={toggleChartHour} usersPlatform={usersPlatform} usersPlatformHour={usersPlatformHour} />
       )}
       {tab === 'events' && <EventsTab rows={topEvents} loading={loading} />}
       {tab === 'screens' && <ScreensTab rows={topScreens} loading={loading} />}
@@ -285,19 +334,86 @@ export default function AnalyticsPage() {
 
 // ─── Tabs ───────────────────────────────────────────────────────────────────
 
+// Colors shared by the App/Website/Unattributed buckets (cards + hourly chart).
+const BUCKET_COLORS: Record<string, string> = { App: '#4DFF88', Website: '#4D9FFF', Unattributed: '#90A4AE' };
+
+// App-vs-Website split card (App = iOS+Android, Website = web).
+// Switches to an hour-of-day stacked chart when `hourMode` is on.
+function PlatformSplit({ title, total, g, hourMode, hourCat, onToggleHour }: {
+  title: string;
+  total: number;
+  g: { web: number; app: number; unknown: number };
+  hourMode: boolean;
+  hourCat: HourlyCategorical | null;
+  onToggleHour: (mode: ChartGranularity) => void;
+}) {
+  const denom = Math.max(g.web + g.app + g.unknown, 1);
+  const rows: Array<{ label: string; value: number; color: string; Icon: typeof Smartphone }> = [
+    { label: 'App (iOS + Android)', value: g.app, color: '#4DFF88', Icon: Smartphone },
+    { label: 'Website', value: g.web, color: '#4D9FFF', Icon: Globe },
+    { label: 'Unattributed', value: g.unknown, color: '#90A4AE', Icon: HelpCircle }
+  ];
+  return (
+    <div className="table-card" style={{ padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 12 }}>
+        <h3 style={{ margin: 0 }}>{title}</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {!hourMode && <span style={{ fontSize: 22, fontWeight: 700 }}>{formatNumber(total)}</span>}
+          <ChartGranularityToggle value={hourMode ? 'hour' : 'default'} defaultLabel="Total" onChange={onToggleHour} />
+        </div>
+      </div>
+      {hourMode ? (
+        <HourlyStackedChart cat={hourCat ?? { keys: [], data: [] }} type="bar" height={220} colorMap={BUCKET_COLORS} />
+      ) : rows.map((r) => {
+        const pct = Math.round((r.value / denom) * 100);
+        return (
+          <div key={r.label} style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginBottom: 4 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)' }}>
+                <r.Icon size={13} style={{ color: r.color }} /> {r.label}
+              </span>
+              <span style={{ fontWeight: 600 }}>{formatNumber(r.value)} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>· {pct}%</span></span>
+            </div>
+            <div style={{ height: 6, background: 'var(--bg-input)', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ width: `${pct}%`, height: '100%', background: r.color, borderRadius: 4, transition: 'width 0.4s' }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function OverviewTab({
   overview,
   dailyChart,
   topEvents,
   topScreens,
-  topSections
+  topSections,
+  hourOverview,
+  chartHour,
+  onToggleHour,
+  usersPlatform,
+  usersPlatformHour
 }: {
   overview: OverviewResponse;
   dailyChart: Array<{ day: string; events: number; users: number; sessions: number }>;
   topEvents: TopEventRow[];
   topScreens: TopScreenRow[];
   topSections: TopSectionRow[];
+  hourOverview: OverviewResponse | null;
+  chartHour: Record<string, boolean>;
+  onToggleHour: (id: string, mode: ChartGranularity) => void;
+  usersPlatform: UsersByPlatformResponse | null;
+  usersPlatformHour: UsersByPlatformResponse | null;
 }) {
+  const hourDaily: HourPoint[] = (hourOverview?.daily ?? []).map((d) => ({
+    hour: d.hour ?? '',
+    events: d.events,
+    users: d.unique_users,
+    sessions: d.unique_sessions
+  }));
+  const platformHourly: HourlyCategorical = hourOverview?.by_platform_hourly ?? { keys: [], data: [] };
   const stats = [
     { label: 'Events', value: overview.totals.events },
     { label: 'Screen Views', value: overview.totals.screen_views },
@@ -325,9 +441,37 @@ function OverviewTab({
         ))}
       </div>
 
+      {/* App vs Website split: active users + new signups */}
+      {usersPlatform && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <PlatformSplit
+            title="Active Users — App vs Website"
+            total={usersPlatform.active_users.total}
+            g={usersPlatform.active_users.grouped}
+            hourMode={!!chartHour.activeUsers}
+            hourCat={usersPlatformHour?.active_users.hourly ?? null}
+            onToggleHour={(m) => onToggleHour('activeUsers', m)}
+          />
+          <PlatformSplit
+            title="New Signups — App vs Website"
+            total={usersPlatform.new_signups.total}
+            g={usersPlatform.new_signups.grouped}
+            hourMode={!!chartHour.newSignups}
+            hourCat={usersPlatformHour?.new_signups.hourly ?? null}
+            onToggleHour={(m) => onToggleHour('newSignups', m)}
+          />
+        </div>
+      )}
+
       {/* Daily trend */}
       <div className="table-card" style={{ marginBottom: 16, padding: 16 }}>
-        <h3 style={{ marginBottom: 12 }}>Events / Users / Sessions per Day</h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <h3 style={{ margin: 0 }}>Events / Users / Sessions per {chartHour.trend ? 'Hour' : 'Day'}</h3>
+          <ChartGranularityToggle value={chartHour.trend ? 'hour' : 'default'} defaultLabel="Daily" onChange={(g) => onToggleHour('trend', g)} />
+        </div>
+        {chartHour.trend ? (
+          <HourlySeriesChart data={hourDaily} series={[{ key: 'events', color: '#FF6B6B', name: 'Events' }, { key: 'users', color: '#64B5F6', name: 'Users' }]} type="area" height={260} />
+        ) : (
         <ResponsiveContainer width="100%" height={260}>
           <AreaChart data={dailyChart}>
             <defs>
@@ -349,12 +493,19 @@ function OverviewTab({
             <Area type="monotone" dataKey="users" stroke="#64B5F6" fill="url(#usrGrad)" />
           </AreaChart>
         </ResponsiveContainer>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
         {/* By platform */}
         <div className="table-card" style={{ padding: 16 }}>
-          <h3 style={{ marginBottom: 12 }}>Events by Platform</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <h3 style={{ margin: 0 }}>Events by Platform</h3>
+            <ChartGranularityToggle value={chartHour.platform ? 'hour' : 'default'} defaultLabel="Total" onChange={(g) => onToggleHour('platform', g)} />
+          </div>
+          {chartHour.platform ? (
+            <HourlyStackedChart cat={platformHourly} type="bar" height={220} colorMap={PLATFORM_COLORS} />
+          ) : (
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie data={overview.by_platform} dataKey="count" nameKey="platform" cx="50%" cy="50%" outerRadius={80}>
@@ -366,6 +517,7 @@ function OverviewTab({
               <Legend wrapperStyle={{ fontSize: 12 }} />
             </PieChart>
           </ResponsiveContainer>
+          )}
         </div>
 
         {/* Top screens chart */}
